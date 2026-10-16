@@ -1,0 +1,727 @@
+{
+  "nodes": [
+    {
+      "id": "ciMetricsMain01-n01",
+      "name": "README - V2 Stage3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        100,
+        -220
+      ],
+      "parameters": {
+        "content": "## Content Intelligence\nSanitized portfolio export. Configure credentials and identifiers before using live services. See n8n/README.md.",
+        "height": 380,
+        "width": 600,
+        "color": 5
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n02",
+      "name": "Execute Sub-workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        240
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "target_base",
+              "type": "string"
+            },
+            {
+              "name": "target_table",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n03",
+      "name": "Init SQLite",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\ndb.exec(`CREATE TABLE IF NOT EXISTS metrics_call_log (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    article_id TEXT NOT NULL,\n    status TEXT NOT NULL CHECK (status IN ('processing','success','failed','uncertain','skipped')),\n    provider TEXT NOT NULL DEFAULT 'jizhile',\n    run_id TEXT,\n    feishu_record_id TEXT,\n    url TEXT NOT NULL,\n    request_hash TEXT,\n    result_json TEXT,\n    read_count INTEGER,\n    like_count INTEGER,\n    wow_count INTEGER,\n    share_count INTEGER,\n    collect_count INTEGER,\n    comment_count INTEGER,\n    error_code TEXT,\n    error_msg TEXT,\n    started_at INTEGER NOT NULL,\n    finished_at INTEGER,\n    lock_until INTEGER NOT NULL,\n    synced_to_feishu INTEGER NOT NULL DEFAULT 0\n  );\n  CREATE UNIQUE INDEX IF NOT EXISTS ux_metrics_processing_once ON metrics_call_log(article_id) WHERE status = 'processing';\n  CREATE INDEX IF NOT EXISTS idx_metrics_article_status_time ON metrics_call_log(article_id, status, started_at);\n  CREATE INDEX IF NOT EXISTS idx_metrics_sync ON metrics_call_log(status, synced_to_feishu);`);\ndb.close();\nconst sd = $getWorkflowStaticData('global');\nsd.stage3_run_stats = {\n  total_records: 0, cache_hit_count: 0, claimed_count: 0,\n  skipped_processing_count: 0, success_count: 0, failed_count: 0,\n  uncertain_count: 0, run_started_at: Date.now()\n};\nreturn items;"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n04",
+      "name": "Read Feishu Pending",
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        600,
+        340
+      ],
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:search",
+        "app_toke": "={{ $('Execute Sub-workflow Trigger').first().json.target_base }}",
+        "table_id": "={{ $('Execute Sub-workflow Trigger').first().json.target_table }}",
+        "user_id_type": "open_id",
+        "page_toke": "",
+        "page_size": 500,
+        "body": "={{ JSON.stringify({ field_names: ['article_id', '地址', 'metric_status', '发布时间'], filter: { conjunction: 'and', conditions: [{ field_name: '地址', operator: 'isNotEmpty', value: [] }, { field_name: 'metric_status', operator: 'isEmpty', value: [] }] } }) }}"
+      },
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "FEISHU_CREDENTIAL_ID",
+          "name": "Feishu Bitable — configure"
+        }
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n05",
+      "name": "Split Feishu Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function getField(fields, name) {\n  const val = fields?.[name];\n  if (val === null || val === undefined) return '';\n  if (typeof val === 'string') return val;\n  if (typeof val === 'number') return String(val);\n  if (Array.isArray(val)) {\n    if (!val.length) return '';\n    const first = val[0];\n    if (typeof first === 'object' && first !== null) {\n      return first.link || first.text || first.name || first.url || JSON.stringify(first);\n    }\n    return val.map(seg => {\n      if (typeof seg === 'string') return seg;\n      if (seg?.text) return String(seg.text);\n      return '';\n    }).join('');\n  }\n  if (typeof val === 'object') {\n    return val.link || val.text || val.name || val.url || JSON.stringify(val);\n  }\n  return String(val);\n}\n\nfunction getTimestamp(fields, name) {\n  const val = fields?.[name];\n  if (val === null || val === undefined) return null;\n  if (typeof val === 'number') return val;\n  if (typeof val === 'string' && /^\\d+$/.test(val.trim())) return Number(val.trim());\n  return null;\n}\n\nconst now = Date.now();\nconst cutoff = now - 86400 * 1000;\n\nconst resp = items[0]?.json || {};\nconst records = resp.data?.items || resp.items || resp.records || resp.data?.records || [];\nif (!records.length) return [];\n\nreturn records\n  .map(r => ({\n    json: {\n      record_id: r.record_id || r.id || '',\n      article_id: getField(r.fields, 'article_id'),\n      url: getField(r.fields, '地址'),\n      publish_time_ms: getTimestamp(r.fields, '发布时间'),\n    }\n  }))\n  .filter(item => {\n    if (!item.json.article_id || !item.json.url) return false;\n    const pts = item.json.publish_time_ms;\n    if (pts === null) return false;\n    return pts <= cutoff;\n  });"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n06",
+      "name": "Loop Over Records",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        340
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n07",
+      "name": "Compute task_key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const now = Date.now();\nconst item = items[0].json;\nconst article_id = item.article_id || '';\nif (!article_id) {\n  throw new Error('article_id 为空，拒绝调用极致了，避免 task_key 冲突');\n}\nconst task_key = article_id;\nconst run_id = `s3-${now}-${Math.random().toString(36).slice(2, 8)}`;\nreturn [{\n  json: {\n    ...item,\n    task_key,\n    run_id,\n    started_at: now,\n    lock_until: now + 10 * 60 * 1000,\n  }\n}];"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n08",
+      "name": "Check SQLite 24h Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\nconst item = items[0].json;\nconst since_24h = Date.now() - 86400 * 1000;\nconst row = db.prepare(`SELECT id, result_json FROM metrics_call_log WHERE article_id = ? AND status = 'success' AND started_at >= ? ORDER BY started_at DESC LIMIT 1`).get(item.article_id, since_24h);\ndb.close();\nlet check_result = null;\nlet cached_read_count = 0, cached_like_count = 0, cached_wow_count = 0;\nlet cached_share_count = 0, cached_collect_count = 0, cached_comment_count = 0;\nif (row) {\n  let parsed = {};\n  try { parsed = JSON.parse(row.result_json || '{}'); } catch(e) {}\n  if (parsed.read_count !== undefined || parsed.like_count !== undefined) {\n    check_result = 'RECENT_SUCCESS';\n    cached_read_count = parsed.read_count || 0;\n    cached_like_count = parsed.like_count || 0;\n    cached_wow_count = parsed.wow_count || 0;\n    cached_share_count = parsed.share_count || 0;\n    cached_collect_count = parsed.collect_count || 0;\n    cached_comment_count = parsed.comment_count || 0;\n  } else {\n    check_result = 'SUCCESS_CACHE_INVALID';\n  }\n}\nreturn [{ json: { ...item, check_result, cached_read_count, cached_like_count, cached_wow_count, cached_share_count, cached_collect_count, cached_comment_count } }];"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n09",
+      "name": "IF Recent Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        340
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.check_result }}",
+              "operation": "equal",
+              "value2": "RECENT_SUCCESS"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n10",
+      "name": "Write Feishu From Cache",
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        140
+      ],
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:update",
+        "app_toke": "={{ $('Execute Sub-workflow Trigger').first().json.target_base }}",
+        "table_id": "={{ $('Execute Sub-workflow Trigger').first().json.target_table }}",
+        "record_id": "={{ $json.record_id }}",
+        "user_id_type": "open_id",
+        "body": "={{ JSON.stringify({ fields: { '阅读': $json.cached_read_count, '点赞': $json.cached_like_count, '在看': $json.cached_wow_count, '转发': $json.cached_share_count, '收藏': $json.cached_collect_count, '评论数': $json.cached_comment_count, 'metric_status': 'data_fetched' } }) }}"
+      },
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "FEISHU_CREDENTIAL_ID",
+          "name": "Feishu Bitable — configure"
+        }
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n11",
+      "name": "Mark SQLite Synced Cache",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        140
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\nlet article_id;\ntry { article_id = $('Check SQLite 24h Success').first().json.article_id; } catch(e) {}\nif (!article_id) article_id = items[0].json?.article_id || '';\nconst since_24h = Date.now() - 86400 * 1000;\ndb.prepare(`UPDATE metrics_call_log SET synced_to_feishu = 1 WHERE article_id = ? AND status = 'success' AND started_at >= ?`).run(article_id, since_24h);\ndb.close();\nconst sd = $getWorkflowStaticData('global');\nif (sd.stage3_run_stats) {\n  sd.stage3_run_stats.cache_hit_count++;\n  sd.stage3_run_stats.total_records++;\n}\nreturn items;"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n12",
+      "name": "Atomic Lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        540
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\nconst item = items[0].json;\nconst { article_id, record_id, run_id, lock_until, started_at, url } = item;\nconst now = Date.now();\nconst since_24h = now - 86400 * 1000;\nlet lock_result = 'CLAIMED';\nconst txn = db.transaction(() => {\n  const sr = db.prepare(`SELECT id FROM metrics_call_log WHERE article_id = ? AND status = 'success' AND started_at >= ? LIMIT 1`).get(article_id, since_24h);\n  if (sr) { lock_result = 'RECENT_SUCCESS'; return; }\n  const pr = db.prepare(`SELECT id, lock_until as lu FROM metrics_call_log WHERE article_id = ? AND status = 'processing' LIMIT 1`).get(article_id);\n  if (pr) {\n    if (pr.lu > now) { lock_result = 'ALREADY_PROCESSING'; return; }\n    db.prepare(`UPDATE metrics_call_log SET status = 'uncertain' WHERE id = ?`).run(pr.id);\n    lock_result = 'LOCK_EXPIRED_REVIEW'; return;\n  }\n  try {\n    db.prepare(`INSERT INTO metrics_call_log (article_id, status, provider, run_id, feishu_record_id, url, started_at, lock_until, synced_to_feishu) VALUES (?, 'processing', 'jizhile', ?, ?, ?, ?, ?, 0)`).run(article_id, run_id, record_id, url, started_at, lock_until);\n  } catch (e) {\n    if (e.code === 'SQLITE_CONSTRAINT_UNIQUE' || String(e.message).includes('UNIQUE')) {\n      lock_result = 'ALREADY_PROCESSING';\n    } else {\n      throw e;\n    }\n  }\n});\ntxn();\ndb.close();\nreturn [{ json: { ...item, lock_result } }];"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n13",
+      "name": "IF Lock Claimed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        540
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.lock_result }}",
+              "operation": "equal",
+              "value2": "CLAIMED"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n14",
+      "name": "Call Jizhile API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2480,
+        540
+      ],
+      "continueOnFail": true,
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.dajiala.com/fbmain/monitor/v3/read_zan_pro",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"url\": \"{{$json.url}}\",\n  \"verifycode\": \"\"\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "METRICS_CREDENTIAL_ID",
+          "name": "Article Metrics API — configure"
+        }
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n15",
+      "name": "Normalize Jizhile Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        540
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function toNumber(value) {\n  if (value === undefined || value === null || value === '') return 0;\n  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;\n  let s = String(value).trim().replace(/,/g, '');\n  if (/万\\+?$/.test(s)) return Math.round(Number(s.replace(/万\\+?$/, '')) * 10000) || 0;\n  if (s.endsWith('+')) s = s.slice(0, -1);\n  const n = Number(s);\n  return Number.isFinite(n) ? n : 0;\n}\n\nconst resp = items[0]?.json || {};\nlet origItem;\ntry { origItem = $('Compute task_key').first().json; } catch(e) { origItem = resp; }\nconst now = Date.now();\nlet jizhile_status, read_count, like_count, wow_count, share_count, collect_count, comment_count, error_code, error_msg;\n\nif (resp.code === 0) {\n  const data = resp.data || {};\n  jizhile_status = 'success';\n  read_count = toNumber(data.read);\n  like_count = toNumber(data.zan);\n  wow_count = toNumber(data.looking);\n  share_count = toNumber(data.share_num);\n  collect_count = toNumber(data.collect_num);\n  comment_count = toNumber(data.comment_count);\n  error_code = null;\n  error_msg = null;\n} else {\n  const errCode = resp.code ?? resp.status ?? 'unknown';\n  const errMsg = typeof resp.msg === 'string' ? resp.msg : (typeof resp.message === 'string' ? resp.message : JSON.stringify(resp.message ?? resp.msg ?? ''));\n  const fatalCodes = [20002, 20003];\n  jizhile_status = fatalCodes.includes(errCode) ? 'failed' : 'uncertain';\n  read_count = 0; like_count = 0; wow_count = 0; share_count = 0; collect_count = 0; comment_count = 0;\n  error_code = String(errCode).slice(0, 64);\n  error_msg = String(errMsg).slice(0, 500);\n}\n\nreturn [{ json: { ...origItem, jizhile_status, read_count, like_count, wow_count, share_count, collect_count, comment_count, error_code, error_msg, finished_at: now } }];"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n16",
+      "name": "IF Jizhile OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2960,
+        540
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.jizhile_status }}",
+              "operation": "equal",
+              "value2": "success"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n17",
+      "name": "Write SQLite Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\nconst item = items[0].json;\nconst { article_id, run_id, read_count, like_count, wow_count, share_count, collect_count, comment_count, finished_at } = item;\nconst result_json = JSON.stringify({ read_count, like_count, wow_count, share_count, collect_count, comment_count });\nconst res = db.prepare(`UPDATE metrics_call_log SET status='success', result_json=?, read_count=?, like_count=?, wow_count=?, share_count=?, collect_count=?, comment_count=?, finished_at=? WHERE article_id=? AND status='processing' AND run_id=?`).run(result_json, read_count, like_count, wow_count, share_count, collect_count, comment_count, finished_at, article_id, run_id);\nif (res.changes !== 1) {\n  const existing = db.prepare(`SELECT id FROM metrics_call_log WHERE article_id=? AND status='success' AND run_id=? LIMIT 1`).get(article_id, run_id);\n  if (!existing) {\n    db.close();\n    throw new Error(`SQLite success update failed (changes=${res.changes}). article_id=${article_id}, run_id=${run_id}. 人工检查 metrics_call_log。`);\n  }\n}\ndb.close();\nconst sd = $getWorkflowStaticData('global');\nif (sd.stage3_run_stats) {\n  sd.stage3_run_stats.success_count++;\n  sd.stage3_run_stats.claimed_count++;\n  sd.stage3_run_stats.total_records++;\n}\nreturn [{ json: { ...item, result_json } }];"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n18",
+      "name": "Write Feishu Metrics",
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        3440,
+        400
+      ],
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:update",
+        "app_toke": "={{ $('Execute Sub-workflow Trigger').first().json.target_base }}",
+        "table_id": "={{ $('Execute Sub-workflow Trigger').first().json.target_table }}",
+        "record_id": "={{ $json.record_id }}",
+        "user_id_type": "open_id",
+        "body": "={{ JSON.stringify({ fields: { '阅读': $json.read_count, '点赞': $json.like_count, '在看': $json.wow_count, '转发': $json.share_count, '收藏': $json.collect_count, '评论数': $json.comment_count, 'metric_status': 'data_fetched' } }) }}"
+      },
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "FEISHU_CREDENTIAL_ID",
+          "name": "Feishu Bitable — configure"
+        }
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n19",
+      "name": "Mark SQLite Synced Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3680,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\nlet article_id;\ntry { article_id = $('Write SQLite Success').first().json.article_id; } catch(e) {}\nif (!article_id) article_id = items[0].json?.article_id || '';\ndb.prepare(`UPDATE metrics_call_log SET synced_to_feishu=1 WHERE article_id=? AND status='success'`).run(article_id);\ndb.close();\nreturn items;"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n20",
+      "name": "Write SQLite Non-Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        680
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\nconst item = items[0].json;\nconst { article_id, run_id, jizhile_status, error_code, error_msg, finished_at } = item;\ndb.prepare(`UPDATE metrics_call_log SET status=?, error_code=?, error_msg=?, finished_at=? WHERE article_id=? AND status='processing' AND run_id=?`).run(jizhile_status, error_code, error_msg, finished_at, article_id, run_id);\ndb.close();\nconst sd = $getWorkflowStaticData('global');\nif (sd.stage3_run_stats) {\n  if (jizhile_status === 'failed') sd.stage3_run_stats.failed_count++;\n  else sd.stage3_run_stats.uncertain_count++;\n  sd.stage3_run_stats.claimed_count++;\n  sd.stage3_run_stats.total_records++;\n}\nreturn items;"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n21",
+      "name": "Track Skip",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        720
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nif (sd.stage3_run_stats) {\n  sd.stage3_run_stats.skipped_processing_count++;\n  sd.stage3_run_stats.total_records++;\n}\nreturn items;"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n22",
+      "name": "IF Cache Invalid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        540
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.check_result }}",
+              "operation": "equal",
+              "value2": "SUCCESS_CACHE_INVALID"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n23",
+      "name": "Handle Cache Invalid",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        680
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\nconst item = items[0].json;\nconst { article_id } = item;\nconst finished_at = Date.now();\nconst badRow = db.prepare(`SELECT id FROM metrics_call_log WHERE article_id=? AND status='success' ORDER BY started_at DESC LIMIT 1`).get(article_id);\nif (badRow) {\n  db.prepare(`UPDATE metrics_call_log SET status='uncertain', error_code=?, error_msg=?, finished_at=? WHERE id=?`).run('SUCCESS_CACHE_INVALID', '24h success exists but result_json is invalid', finished_at, badRow.id);\n}\ndb.close();\nconst sd = $getWorkflowStaticData('global');\nif (sd.stage3_run_stats) {\n  sd.stage3_run_stats.uncertain_count++;\n  sd.stage3_run_stats.total_records++;\n}\nreturn items;"
+      }
+    },
+    {
+      "id": "ciMetricsMain01-n24",
+      "name": "Build Stage3 Final Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst stats = { ...(sd.stage3_run_stats || {}) };\ndelete sd.stage3_run_stats;\nconst duration_ms = stats.run_started_at ? (Date.now() - stats.run_started_at) : null;\nreturn [{ json: {\n  workflow: 'W2R V2 Stage3 - 极致了 指标 Worker',\n  total_records: stats.total_records || 0,\n  cache_hit_count: stats.cache_hit_count || 0,\n  claimed_count: stats.claimed_count || 0,\n  skipped_processing_count: stats.skipped_processing_count || 0,\n  success_count: stats.success_count || 0,\n  failed_count: stats.failed_count || 0,\n  uncertain_count: stats.uncertain_count || 0,\n  duration_ms,\n  finished_at: new Date().toISOString()\n} }];"
+      }
+    }
+  ],
+  "connections": {
+    "Execute Sub-workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Init SQLite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init SQLite": {
+      "main": [
+        [
+          {
+            "node": "Read Feishu Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Feishu Pending": {
+      "main": [
+        [
+          {
+            "node": "Split Feishu Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Feishu Records": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Records": {
+      "main": [
+        [
+          {
+            "node": "Compute task_key",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Stage3 Final Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute task_key": {
+      "main": [
+        [
+          {
+            "node": "Check SQLite 24h Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check SQLite 24h Success": {
+      "main": [
+        [
+          {
+            "node": "IF Recent Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Recent Success": {
+      "main": [
+        [
+          {
+            "node": "Write Feishu From Cache",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Cache Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Cache Invalid": {
+      "main": [
+        [
+          {
+            "node": "Handle Cache Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Atomic Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Cache Invalid": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Feishu From Cache": {
+      "main": [
+        [
+          {
+            "node": "Mark SQLite Synced Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark SQLite Synced Cache": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atomic Lock": {
+      "main": [
+        [
+          {
+            "node": "IF Lock Claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Lock Claimed": {
+      "main": [
+        [
+          {
+            "node": "Call Jizhile API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Track Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Jizhile API": {
+      "main": [
+        [
+          {
+            "node": "Normalize Jizhile Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Jizhile Result": {
+      "main": [
+        [
+          {
+            "node": "IF Jizhile OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Jizhile OK": {
+      "main": [
+        [
+          {
+            "node": "Write SQLite Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write SQLite Non-Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write SQLite Success": {
+      "main": [
+        [
+          {
+            "node": "Write Feishu Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Feishu Metrics": {
+      "main": [
+        [
+          {
+            "node": "Mark SQLite Synced Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark SQLite Synced Success": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write SQLite Non-Success": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Track Skip": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v0",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "id": "ciMetricsMain01",
+  "name": "Content Intelligence · Article Metrics",
+  "active": false,
+  "staticData": null,
+  "pinData": {}
+}

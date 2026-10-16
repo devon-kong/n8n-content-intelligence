@@ -1,0 +1,377 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "ciEntryBench001-n01",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        240,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "ciEntryBench001-n02",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:search",
+        "app_toke": "CONFIG_BASE_ID",
+        "table_id": "PIPELINES_TABLE_ID",
+        "user_id_type": "open_id",
+        "page_toke": "",
+        "page_size": 1,
+        "body": "={{ JSON.stringify({ field_names: ['pipeline_key', 'target_base', 'target_table', 'window_days', '是否启用', 'summary_enabled', 'metric_enabled', 'process_mode', 'summary_prompt', 'summary_version', 'model'], filter: { conjunction: 'and', conditions: [{ field_name: 'pipeline_key', operator: 'is', value: ['benchmark'] }, { field_name: '是否启用', operator: 'is', value: [true] }] }, page_size: 1 }) }}"
+      },
+      "id": "ciEntryBench001-n03",
+      "name": "Read Pipeline Config",
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        540,
+        300
+      ],
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "FEISHU_CREDENTIAL_ID",
+          "name": "Feishu Bitable — configure"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const resp = items[0]?.json || {};\nif (resp.code !== undefined && resp.code !== 0) {\n  throw new Error('飞书 Pipeline Config 查询失败：' + JSON.stringify(resp).slice(0, 500));\n}\nconst records = resp.data?.items || [];\nif (records.length === 0) {\n  throw new Error('pipeline_key=benchmark 未找到启用的配置（0 条记录）');\n}\nif (records.length > 1) {\n  throw new Error('pipeline_key=benchmark 配置存在多条记录（' + records.length + '），应唯一');\n}\nfunction fsText(v) {\n  if (v === null || v === undefined) return '';\n  if (Array.isArray(v)) return v.map(x => x?.text || '').join('').trim();\n  if (typeof v === 'object') return (v.text || v.link || '').trim();\n  return String(v).trim();\n}\nconst fields = records[0].fields || {};\nconst cfg = {\n  pipeline_key: 'benchmark',\n  target_base: fsText(fields.target_base),\n  target_table: fsText(fields.target_table),\n  window_days: Number(fsText(fields.window_days)) || 7,\n  summary_enabled: Boolean(fields.summary_enabled),\n  metric_enabled: Boolean(fields.metric_enabled),\n  process_mode: fsText(fields.process_mode),\n  summary_prompt: fsText(fields.summary_prompt),\n  summary_version: fsText(fields.summary_version),\n  model: fsText(fields.model),\n};\nif (!cfg.target_base) throw new Error('target_base 为空，请检查飞书配置');\nif (!cfg.target_table) throw new Error('target_table 为空，请检查飞书配置');\nreturn [{ json: cfg }];"
+      },
+      "id": "ciEntryBench001-n04",
+      "name": "Build Config Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ciCatchMain00001"
+        },
+        "workflowInputs": "={{ JSON.stringify({ pipeline_key: $json.pipeline_key, target_base: $json.target_base, target_table: $json.target_table, window_days: $json.window_days }) }}",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ciEntryBench001-n05",
+      "name": "Execute Catch Flow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1140,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-summary-enabled",
+              "leftValue": "={{ $('Build Config Snapshot').first().json.summary_enabled }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "ciEntryBench001-n06",
+      "name": "Check Summary Enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1440,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const cfg = $('Build Config Snapshot').first().json;\nreturn [{ json: {\n  target_base: cfg.target_base,\n  target_table: cfg.target_table,\n  summary_prompt_template: cfg.summary_prompt,\n  prompt_version: cfg.summary_version,\n  model: cfg.model,\n}}];"
+      },
+      "id": "ciEntryBench001-n07",
+      "name": "Prepare Summary Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ciSummaryBench01"
+        },
+        "workflowInputs": "={{ JSON.stringify({ target_base: $json.target_base, target_table: $json.target_table, summary_prompt_template: $json.summary_prompt_template, prompt_version: $json.prompt_version, model: $json.model }) }}",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ciEntryBench001-n08",
+      "name": "Execute Summary Flow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2040,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-metric-enabled",
+              "leftValue": "={{ $('Build Config Snapshot').first().json.metric_enabled }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            },
+            {
+              "id": "cond-process-mode",
+              "leftValue": "={{ $('Build Config Snapshot').first().json.process_mode }}",
+              "rightValue": "benchmark",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "cond-summary-enabled-for-metric",
+              "leftValue": "={{ $('Build Config Snapshot').first().json.summary_enabled }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "ciEntryBench001-n09",
+      "name": "Check Metric Enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1440,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const cfg = $('Build Config Snapshot').first().json;\nreturn [{ json: {\n  target_base: cfg.target_base,\n  target_table: cfg.target_table,\n}}];"
+      },
+      "id": "ciEntryBench001-n10",
+      "name": "Prepare Metric Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ciMetricsMain01"
+        },
+        "workflowInputs": "={{ JSON.stringify({ target_base: $json.target_base, target_table: $json.target_table }) }}",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ciEntryBench001-n11",
+      "name": "Execute Metric Flow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2040,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Pipeline Config": {
+      "main": [
+        [
+          {
+            "node": "Build Config Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Config Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Execute Catch Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Catch Flow": {
+      "main": [
+        [
+          {
+            "node": "Check Summary Enabled",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Metric Enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Summary Enabled": {
+      "main": [
+        [
+          {
+            "node": "Prepare Summary Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Prepare Summary Inputs": {
+      "main": [
+        [
+          {
+            "node": "Execute Summary Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Summary Flow": {
+      "main": [
+        []
+      ]
+    },
+    "Check Metric Enabled": {
+      "main": [
+        [
+          {
+            "node": "Prepare Metric Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Prepare Metric Inputs": {
+      "main": [
+        [
+          {
+            "node": "Execute Metric Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Metric Flow": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "ciEntryBench001",
+  "name": "Content Intelligence · Benchmark Entry",
+  "active": false,
+  "staticData": null,
+  "pinData": {}
+}

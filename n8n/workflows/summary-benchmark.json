@@ -1,0 +1,705 @@
+{
+  "nodes": [
+    {
+      "id": "ciSummaryBench01-n01",
+      "name": "README - V2 Stage2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        100,
+        -220
+      ],
+      "parameters": {
+        "content": "## Content Intelligence\nSanitized portfolio export. Configure credentials and identifiers before using live services. See n8n/README.md.",
+        "height": 380,
+        "width": 580,
+        "color": 5
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n02",
+      "name": "Execute Sub-workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        240
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "target_base",
+              "type": "string"
+            },
+            {
+              "name": "target_table",
+              "type": "string"
+            },
+            {
+              "name": "summary_prompt_template",
+              "type": "string"
+            },
+            {
+              "name": "prompt_version",
+              "type": "string"
+            },
+            {
+              "name": "model",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n03",
+      "name": "Init SQLite",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\ndb.exec(`CREATE TABLE IF NOT EXISTS summary_call_log (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    article_id TEXT NOT NULL,\n    task_key TEXT NOT NULL,\n    status TEXT NOT NULL CHECK (status IN ('processing','success','failed','uncertain','skipped')),\n    provider TEXT NOT NULL DEFAULT 'deepseek',\n    model TEXT,\n    prompt_version TEXT,\n    run_id TEXT,\n    feishu_record_id TEXT,\n    request_hash TEXT,\n    result_json TEXT,\n    error_code TEXT,\n    error_msg TEXT,\n    started_at INTEGER NOT NULL,\n    finished_at INTEGER,\n    lock_until INTEGER NOT NULL,\n    synced_to_feishu INTEGER NOT NULL DEFAULT 0\n  );\n  CREATE UNIQUE INDEX IF NOT EXISTS ux_summary_success_once ON summary_call_log(task_key) WHERE status = 'success';\n  CREATE UNIQUE INDEX IF NOT EXISTS ux_summary_processing_once ON summary_call_log(task_key) WHERE status = 'processing';\n  CREATE INDEX IF NOT EXISTS idx_summary_article ON summary_call_log(article_id, status);\n  CREATE TABLE IF NOT EXISTS metrics_call_log (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    article_id TEXT NOT NULL,\n    status TEXT NOT NULL CHECK (status IN ('processing','success','failed','uncertain','skipped')),\n    provider TEXT NOT NULL DEFAULT 'jizhile',\n    run_id TEXT,\n    feishu_record_id TEXT,\n    url TEXT NOT NULL,\n    request_hash TEXT,\n    result_json TEXT,\n    read_count INTEGER,\n    like_count INTEGER,\n    wow_count INTEGER,\n    share_count INTEGER,\n    collect_count INTEGER,\n    comment_count INTEGER,\n    error_code TEXT,\n    error_msg TEXT,\n    started_at INTEGER NOT NULL,\n    finished_at INTEGER,\n    lock_until INTEGER NOT NULL,\n    synced_to_feishu INTEGER NOT NULL DEFAULT 0\n  );\n  CREATE UNIQUE INDEX IF NOT EXISTS ux_metrics_processing_once ON metrics_call_log(article_id) WHERE status = 'processing';\n  CREATE INDEX IF NOT EXISTS idx_metrics_article_status_time ON metrics_call_log(article_id, status, started_at);\n  CREATE INDEX IF NOT EXISTS idx_metrics_sync ON metrics_call_log(status, synced_to_feishu);`);\ndb.close();\nconst sd = $getWorkflowStaticData('global');\nsd.stage2_run_stats = {\n  total_records: 0, cache_hit_count: 0, claimed_count: 0,\n  skipped_processing_count: 0, success_count: 0, failed_count: 0,\n  uncertain_count: 0, run_started_at: Date.now()\n};\nreturn items;"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n04",
+      "name": "Read Feishu Pending",
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        600,
+        340
+      ],
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:search",
+        "app_toke": "={{ $('Execute Sub-workflow Trigger').first().json.target_base }}",
+        "table_id": "={{ $('Execute Sub-workflow Trigger').first().json.target_table }}",
+        "user_id_type": "open_id",
+        "page_toke": "",
+        "page_size": 500,
+        "body": "={{ JSON.stringify({ field_names: ['article_id','markdown','摘要'], filter: { conjunction: 'and', conditions: [{ field_name: '摘要', operator: 'isEmpty', value: [] }, { field_name: 'markdown', operator: 'isNotEmpty', value: [] }] } }) }}"
+      },
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "FEISHU_CREDENTIAL_ID",
+          "name": "Feishu Bitable — configure"
+        }
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n05",
+      "name": "Split Feishu Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function getField(fields, name) {\n  const val = fields?.[name];\n  if (val === null || val === undefined) return '';\n  if (typeof val === 'string') return val;\n  if (typeof val === 'number') return String(val);\n  if (Array.isArray(val)) {\n    return val.map(seg => {\n      if (typeof seg === 'string') return seg;\n      if (seg?.text) return String(seg.text);\n      return '';\n    }).join('');\n  }\n  if (typeof val === 'object') {\n    if (val.text !== undefined) return String(val.text);\n    if (val.value !== undefined) return String(val.value);\n    return JSON.stringify(val);\n  }\n  return String(val);\n}\n\nconst resp = items[0]?.json || {};\nconst records = resp.data?.items || resp.items || resp.records || resp.data?.records || [];\nif (!records.length) return [];\nreturn records\n  .map(r => ({\n    json: {\n      record_id: r.record_id || r.id || '',\n      article_id: getField(r.fields, 'article_id'),\n      markdown: getField(r.fields, 'markdown'),\n    }\n  }))\n  .filter(item => item.json.article_id && item.json.markdown);"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n06",
+      "name": "Loop Over Records",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        340
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n07",
+      "name": "Compute task_key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const now = Date.now();\nconst item = items[0].json;\nconst article_id = item.article_id || '';\nif (!article_id) {\n  throw new Error('article_id 为空，拒绝生成摘要，避免 task_key 冲突');\n}\nconst prompt_version = item.prompt_version;\nconst model = item.model;\nconst task_key = `${prompt_version}:${model}:${article_id}`;\nconst run_id = `s2-${now}-${Math.random().toString(36).slice(2, 8)}`;\nreturn [{\n  json: {\n    ...item,\n    task_key,\n    run_id,\n    started_at: now,\n    lock_until: now + 30 * 60 * 1000,\n  }\n}];"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n08",
+      "name": "Check SQLite Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\nconst item = items[0].json;\nconst row = db.prepare(`SELECT id, result_json FROM summary_call_log WHERE task_key = ? AND status = 'success' LIMIT 1`).get(item.task_key);\ndb.close();\nlet check_result = null;\nlet cached_summary_v2 = '';\nlet cached_article_type = '', cached_type_reason = '', cached_policy_entity = '[]', cached_topic_tags_v2 = '[]', cached_target_company_type = '[]', cached_key_facts = '{}';\nif (row) {\n  let parsed = {};\n  try { parsed = JSON.parse(row.result_json || '{}'); } catch(e) {}\n  if (parsed.summary_v2 && String(parsed.summary_v2).trim()) {\n    check_result = 'ALREADY_SUCCESS';\n    cached_summary_v2 = String(parsed.summary_v2).trim();\n    cached_article_type = parsed.article_type || '';\n    cached_type_reason = parsed.type_reason || '';\n    cached_policy_entity = typeof parsed.policy_entity === 'string' ? parsed.policy_entity : JSON.stringify(parsed.policy_entity || []);\n    cached_topic_tags_v2 = typeof parsed.topic_tags_v2 === 'string' ? parsed.topic_tags_v2 : JSON.stringify(parsed.topic_tags_v2 || []);\n    cached_target_company_type = typeof parsed.target_company_type === 'string' ? parsed.target_company_type : JSON.stringify(parsed.target_company_type || []);\n    cached_key_facts = typeof parsed.key_facts === 'string' ? parsed.key_facts : JSON.stringify(parsed.key_facts || {});\n  } else {\n    check_result = 'SUCCESS_CACHE_INVALID';\n  }\n}\nreturn [{ json: { ...item, check_result, cached_summary_v2, cached_article_type, cached_type_reason, cached_policy_entity, cached_topic_tags_v2, cached_target_company_type, cached_key_facts } }];"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n09",
+      "name": "IF Already Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1800,
+        340
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.check_result }}",
+              "operation": "equal",
+              "value2": "ALREADY_SUCCESS"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n10",
+      "name": "Atomic Lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2040,
+        540
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\nconst item = items[0].json;\nconst { task_key, article_id, record_id, run_id, lock_until, started_at, prompt_version, model } = item;\nconst now = Date.now();\nlet lock_result = 'CLAIMED';\nconst txn = db.transaction(() => {\n  const sr = db.prepare(`SELECT id FROM summary_call_log WHERE task_key = ? AND status = 'success' LIMIT 1`).get(task_key);\n  if (sr) { lock_result = 'ALREADY_SUCCESS'; return; }\n  const pr = db.prepare(`SELECT id, lock_until as lu FROM summary_call_log WHERE task_key = ? AND status = 'processing' LIMIT 1`).get(task_key);\n  if (pr) {\n    if (pr.lu > now) { lock_result = 'ALREADY_PROCESSING'; return; }\n    db.prepare(`UPDATE summary_call_log SET status = 'uncertain' WHERE id = ?`).run(pr.id);\n    lock_result = 'LOCK_EXPIRED_REVIEW'; return;\n  }\n  try {\n    db.prepare(`INSERT INTO summary_call_log (article_id,task_key,status,provider,model,prompt_version,run_id,feishu_record_id,started_at,lock_until,synced_to_feishu) VALUES (?,?,'processing','deepseek',?,?,?,?,?,?,0)`).run(article_id,task_key,model,prompt_version,run_id,record_id,started_at,lock_until);\n  } catch (e) {\n    if (e.code === 'SQLITE_CONSTRAINT_UNIQUE' || String(e.message).includes('UNIQUE')) {\n      lock_result = 'ALREADY_PROCESSING';\n    } else {\n      throw e;\n    }\n  }\n});\ntxn();\ndb.close();\nreturn [{ json: { ...item, lock_result } }];"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n11",
+      "name": "IF Lock Claimed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2280,
+        540
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.lock_result }}",
+              "operation": "equal",
+              "value2": "CLAIMED"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n12",
+      "name": "Prepare DeepSeek Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        540
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const item = items[0].json;\nconst markdown = item.markdown || '';\nconst PROMPT = item.summary_prompt_template || '';\nif (!PROMPT.trim()) throw new Error('summary_prompt_template 为空');\nif (!markdown.trim()) throw new Error('markdown 为空');\nreturn [{\n  json: {\n    ...item,\n    summary_prompt: PROMPT + '\\n\\n' + markdown\n  }\n}];"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n13",
+      "name": "Call DeepSeek",
+      "type": "n8n-nodes-deepseek.deepSeek",
+      "typeVersion": 1,
+      "position": [
+        2760,
+        540
+      ],
+      "parameters": {
+        "model": "={{$json.model}}",
+        "prompt": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "={{$json.summary_prompt}}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.2,
+          "maxTokens": 4000,
+          "response_format": {
+            "type": "json_object"
+          }
+        },
+        "requestOptions": {}
+      },
+      "credentials": {
+        "deepSeekApi": {
+          "id": "DEEPSEEK_CREDENTIAL_ID",
+          "name": "DeepSeek — configure"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "ciSummaryBench01-n14",
+      "name": "Write SQLite Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3480,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\nconst item = items[0].json;\nconst { task_key, run_id, summary_v2, article_type, type_reason, policy_entity, topic_tags_v2, target_company_type, key_facts, finished_at } = item;\nfunction safeParse(v, fallback) { try { return typeof v === 'string' ? JSON.parse(v) : v; } catch(e) { return fallback; } }\nconst result_json = JSON.stringify({ summary_v2, article_type, type_reason, policy_entity: safeParse(policy_entity, []), topic_tags_v2: safeParse(topic_tags_v2, []), target_company_type: safeParse(target_company_type, []), key_facts: safeParse(key_facts, {}) });\nconst res = db.prepare(`UPDATE summary_call_log SET status='success', result_json=?, finished_at=? WHERE task_key=? AND status='processing' AND run_id=?`).run(result_json, finished_at, task_key, run_id);\nif (res.changes !== 1) {\n  const existing = db.prepare(`SELECT id FROM summary_call_log WHERE task_key=? AND status='success' LIMIT 1`).get(task_key);\n  if (!existing) {\n    db.close();\n    throw new Error(`SQLite success update failed (changes=${res.changes}). task_key=${task_key}, run_id=${run_id}. 人工检查 summary_call_log。`);\n  }\n}\ndb.close();\nconst sd = $getWorkflowStaticData('global');\nif (sd.stage2_run_stats) {\n  sd.stage2_run_stats.success_count++;\n  sd.stage2_run_stats.claimed_count++;\n  sd.stage2_run_stats.total_records++;\n}\nreturn [{ json: { ...item, result_json } }];"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n15",
+      "name": "Write Feishu Summary",
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        3720,
+        400
+      ],
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:update",
+        "app_toke": "={{ $('Execute Sub-workflow Trigger').first().json.target_base }}",
+        "table_id": "={{ $('Execute Sub-workflow Trigger').first().json.target_table }}",
+        "record_id": "={{ $json.record_id }}",
+        "user_id_type": "open_id",
+        "body": "={{ JSON.stringify({ fields: { '摘要': $json.summary_v2, 'summary_status': 'summarized', '文章类型': $json.article_type, '类型原因': $json.type_reason, '政策对象': $json.policy_entity, '主题标签': $json.topic_tags_v2, '企业类型': $json.target_company_type, '关键事实': $json.key_facts } }) }}"
+      },
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "FEISHU_CREDENTIAL_ID",
+          "name": "Feishu Bitable — configure"
+        }
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n16",
+      "name": "Mark SQLite Synced Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3960,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\n\nlet task_key = items[0].json?.task_key || '';\n\nif (!task_key) {\n  try {\n    const arr = $('Set Summary From Cache').all();\n    task_key = arr[arr.length - 1]?.json?.task_key || '';\n  } catch(e) {}\n}\n\nif (!task_key) {\n  try {\n    const arr = $('Write SQLite Success').all();\n    task_key = arr[arr.length - 1]?.json?.task_key || '';\n  } catch(e) {}\n}\n\nif (!task_key) {\n  try {\n    const arr = $('Check SQLite Success').all();\n    task_key = arr[arr.length - 1]?.json?.task_key || '';\n  } catch(e) {}\n}\n\nif (!task_key) {\n  db.close();\n  throw new Error('task_key 为空，无法标记 synced_to_feishu');\n}\n\ndb.prepare(`UPDATE summary_call_log SET synced_to_feishu=1 WHERE task_key=? AND status='success'`).run(task_key);\ndb.close();\nreturn items;"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n17",
+      "name": "Normalize DeepSeek Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3000,
+        540
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const dsResp = items[0].json;\nlet origItem;\ntry { origItem = $('Prepare DeepSeek Payload').first().json; } catch(e) { origItem = dsResp; }\nconst now = Date.now();\nlet deepseek_status, summary_v2, article_type, type_reason, policy_entity, topic_tags_v2, target_company_type, key_facts, error_code, error_msg;\nlet raw_content, parse_status, finish_reason, usage_total_tokens, raw_head, raw_tail;\nif (dsResp.error) {\n  const errObj = dsResp.error;\n  const code = errObj?.code || errObj?.type || errObj?.status || 'API_ERROR';\n  const msg = errObj?.message || String(errObj || '');\n  const httpStatus = typeof errObj?.status === 'number' ? errObj.status : 0;\n  deepseek_status = (httpStatus >= 400 && httpStatus < 500) ? 'failed' : 'uncertain';\n  error_code = String(code).slice(0, 64);\n  error_msg = String(msg).slice(0, 500);\n  summary_v2 = '';\n} else {\n  const content = dsResp.choices?.[0]?.message?.content || dsResp.message?.content || dsResp.text || dsResp.output || '';\n  finish_reason = dsResp.choices?.[0]?.finish_reason || '';\n  usage_total_tokens = dsResp.usage?.total_tokens || 0;\n  const raw_content_str = String(content);\n  raw_head = raw_content_str.slice(0, 500);\n  raw_tail = raw_content_str.length > 500 ? raw_content_str.slice(-500) : '';\n  if (String(content).trim()) {\n    let parsed = null;\n    let parse_exception = false;\n    try {\n      const raw = String(content).trim();\n      const jsonMatch = raw.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n      parsed = JSON.parse(jsonMatch ? jsonMatch[1].trim() : raw);\n    } catch(e) { parsed = null; parse_exception = true; }\n    if (!parsed) {\n      try {\n        const raw = String(content);\n        const start = raw.indexOf('{');\n        const end = raw.lastIndexOf('}');\n        if (start !== -1 && end > start) parsed = JSON.parse(raw.slice(start, end + 1));\n        if (parsed) parse_exception = false;\n      } catch(e) { parsed = null; }\n    }\n    if (parsed && parsed.summary_v2) {\n      deepseek_status = 'success';\n      summary_v2 = String(parsed.summary_v2 || '').trim();\n      article_type = String(parsed.article_type || '');\n      type_reason = String(parsed.type_reason || '');\n      policy_entity = JSON.stringify(Array.isArray(parsed.policy_entity) ? parsed.policy_entity : []);\n      topic_tags_v2 = JSON.stringify(Array.isArray(parsed.topic_tags_v2) ? parsed.topic_tags_v2 : []);\n      target_company_type = JSON.stringify(Array.isArray(parsed.target_company_type) ? parsed.target_company_type : []);\n      key_facts = JSON.stringify(parsed.key_facts || {});\n      error_code = null;\n      error_msg = null;\n    } else {\n      deepseek_status = 'uncertain';\n      raw_content = raw_content_str.slice(0, 2000);\n      parse_status = 'json_parse_failed';\n      if (parse_exception || parsed === null) {\n        error_code = 'JSON_INCOMPLETE';\n        error_msg = '返回内容 JSON 解析失败，可能因 token 截断导致 JSON 不完整';\n      } else {\n        error_code = 'SCHEMA_MISSING_FIELD';\n        error_msg = '返回内容 JSON 解析成功但缺少 summary_v2 字段';\n      }\n      summary_v2 = '';\n    }\n  } else {\n    deepseek_status = 'uncertain';\n    error_code = 'EMPTY_RESPONSE';\n    error_msg = '摘要内容为空';\n    summary_v2 = '';\n  }\n}\nreturn [{ json: { ...origItem, deepseek_status, summary_v2, article_type, type_reason, policy_entity, topic_tags_v2, target_company_type, key_facts, error_code, error_msg, raw_content, parse_status, finish_reason, usage_total_tokens, raw_head, raw_tail, finished_at: now } }];"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n18",
+      "name": "IF DeepSeek OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        3240,
+        540
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.deepseek_status }}",
+              "operation": "equal",
+              "value2": "success"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n19",
+      "name": "Write SQLite Non-Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3480,
+        680
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const Database = require('better-sqlite3');\nconst db = new Database('/home/node/.n8n/wechat_monitor_paid_calls.sqlite');\nconst item = items[0].json;\nconst { task_key, run_id, deepseek_status, error_code, error_msg, finished_at, finish_reason, usage_total_tokens, raw_head, raw_content } = item;\nconst diag_prefix = `finish=${finish_reason || ''}|tokens=${usage_total_tokens || 0}|head=${(raw_head || '').slice(0, 200)}|`;\nconst enriched_error_msg = (diag_prefix + (error_msg || '')).slice(0, 500);\nconst result_json_to_store = raw_content ? String(raw_content).slice(0, 2000) : null;\ndb.prepare(`UPDATE summary_call_log SET status=?, error_code=?, error_msg=?, result_json=?, finished_at=? WHERE task_key=? AND status='processing' AND run_id=?`).run(deepseek_status, error_code, enriched_error_msg, result_json_to_store, finished_at, task_key, run_id);\ndb.close();\nconst sd = $getWorkflowStaticData('global');\nif (sd.stage2_run_stats) {\n  if (deepseek_status === 'failed') sd.stage2_run_stats.failed_count++;\n  else sd.stage2_run_stats.uncertain_count++;\n  sd.stage2_run_stats.claimed_count++;\n  sd.stage2_run_stats.total_records++;\n}\nreturn items;"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n20",
+      "name": "Track Skip",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        720
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nif (sd.stage2_run_stats) {\n  sd.stage2_run_stats.skipped_processing_count++;\n  sd.stage2_run_stats.total_records++;\n}\nreturn items;"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n21",
+      "name": "Build Stage2 Final Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst stats = { ...(sd.stage2_run_stats || {}) };\ndelete sd.stage2_run_stats;\nconst duration_ms = stats.run_started_at ? (Date.now() - stats.run_started_at) : null;\nreturn [{ json: {\n  workflow: 'W2R V2 Stage2 - 摘要 Worker',\n  total_records: stats.total_records || 0,\n  cache_hit_count: stats.cache_hit_count || 0,\n  claimed_count: stats.claimed_count || 0,\n  skipped_processing_count: stats.skipped_processing_count || 0,\n  success_count: stats.success_count || 0,\n  failed_count: stats.failed_count || 0,\n  uncertain_count: stats.uncertain_count || 0,\n  duration_ms,\n  finished_at: new Date().toISOString()\n} }];"
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n22",
+      "name": "Build Summary Prompt Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        1200,
+        340
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "fields": {
+          "values": [
+            {
+              "name": "prompt_version",
+              "type": "stringValue",
+              "stringValue": "={{ $('Execute Sub-workflow Trigger').first().json.prompt_version }}"
+            },
+            {
+              "name": "model",
+              "type": "stringValue",
+              "stringValue": "={{ $('Execute Sub-workflow Trigger').first().json.model }}"
+            },
+            {
+              "name": "summary_prompt_template",
+              "type": "stringValue",
+              "stringValue": "={{ $('Execute Sub-workflow Trigger').first().json.summary_prompt_template }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ciSummaryBench01-n23",
+      "name": "Set Summary From Cache",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2040,
+        140
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const item = items[0].json;\nconst cached_summary_v2 = String(item.cached_summary_v2 || '').trim();\nif (!cached_summary_v2) {\n  throw new Error('cached_summary_v2 为空，拒绝写入飞书');\n}\nconst sd = $getWorkflowStaticData('global');\nif (sd.stage2_run_stats) {\n  sd.stage2_run_stats.cache_hit_count++;\n  sd.stage2_run_stats.total_records++;\n}\nreturn [{\n  json: {\n    ...item,\n    summary_v2: cached_summary_v2,\n    article_type: item.cached_article_type || '',\n    type_reason: item.cached_type_reason || '',\n    policy_entity: item.cached_policy_entity || '[]',\n    topic_tags_v2: item.cached_topic_tags_v2 || '[]',\n    target_company_type: item.cached_target_company_type || '[]',\n    key_facts: item.cached_key_facts || '{}',\n    summary_source: 'sqlite_cache'\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "Execute Sub-workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Init SQLite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init SQLite": {
+      "main": [
+        [
+          {
+            "node": "Read Feishu Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Feishu Pending": {
+      "main": [
+        [
+          {
+            "node": "Split Feishu Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Feishu Records": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Records": {
+      "main": [
+        [
+          {
+            "node": "Build Summary Prompt Config",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Stage2 Final Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute task_key": {
+      "main": [
+        [
+          {
+            "node": "Check SQLite Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check SQLite Success": {
+      "main": [
+        [
+          {
+            "node": "IF Already Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Already Success": {
+      "main": [
+        [
+          {
+            "node": "Set Summary From Cache",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Atomic Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atomic Lock": {
+      "main": [
+        [
+          {
+            "node": "IF Lock Claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Lock Claimed": {
+      "main": [
+        [
+          {
+            "node": "Prepare DeepSeek Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Track Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Track Skip": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare DeepSeek Payload": {
+      "main": [
+        [
+          {
+            "node": "Call DeepSeek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call DeepSeek": {
+      "main": [
+        [
+          {
+            "node": "Normalize DeepSeek Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize DeepSeek Result": {
+      "main": [
+        [
+          {
+            "node": "IF DeepSeek OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF DeepSeek OK": {
+      "main": [
+        [
+          {
+            "node": "Write SQLite Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write SQLite Non-Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write SQLite Success": {
+      "main": [
+        [
+          {
+            "node": "Write Feishu Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write SQLite Non-Success": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Feishu Summary": {
+      "main": [
+        [
+          {
+            "node": "Mark SQLite Synced Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark SQLite Synced Success": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary Prompt Config": {
+      "main": [
+        [
+          {
+            "node": "Compute task_key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Summary From Cache": {
+      "main": [
+        [
+          {
+            "node": "Write Feishu Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v0"
+  },
+  "id": "ciSummaryBench01",
+  "name": "Content Intelligence · Benchmark Summary",
+  "active": false,
+  "staticData": null,
+  "pinData": {}
+}

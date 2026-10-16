@@ -1,0 +1,41 @@
+[
+  {
+    "pipeline_key": "industry_news",
+    "是否启用": true,
+    "summary_enabled": true,
+    "metric_enabled": false,
+    "process_mode": "news_digest",
+    "target_base": "DEMO_TARGET_BASE",
+    "target_table": "DEMO_NEWS_TABLE",
+    "window_days": 7,
+    "summary_prompt": "Summarize the article in three factual bullet points. Do not invent facts.",
+    "summary_version": "demo-v1",
+    "model": "deepseek-chat"
+  },
+  {
+    "pipeline_key": "ai_news",
+    "是否启用": true,
+    "summary_enabled": true,
+    "metric_enabled": false,
+    "process_mode": "news_digest",
+    "target_base": "DEMO_TARGET_BASE",
+    "target_table": "DEMO_AI_TABLE",
+    "window_days": 7,
+    "summary_prompt": "Summarize the article for an AI operations analyst.",
+    "summary_version": "demo-v1",
+    "model": "deepseek-chat"
+  },
+  {
+    "pipeline_key": "benchmark",
+    "是否启用": true,
+    "summary_enabled": true,
+    "metric_enabled": true,
+    "process_mode": "benchmark",
+    "target_base": "DEMO_TARGET_BASE",
+    "target_table": "DEMO_BENCHMARK_TABLE",
+    "window_days": 7,
+    "summary_prompt": "Return only a valid JSON object grounded in the supplied article. Required keys: summary_v2 (non-empty factual summary string), article_type (string), type_reason (string), policy_entity (array of strings), topic_tags_v2 (array of strings), target_company_type (array of strings), key_facts (object). Use empty arrays/objects when the article provides no evidence. Do not invent facts.",
+    "summary_version": "demo-v1",
+    "model": "deepseek-chat"
+  }
+]

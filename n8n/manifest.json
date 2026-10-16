@@ -1,0 +1,54 @@
+{
+  "description": "Latest curated workflow set; imports disabled; credential and environment values are placeholders.",
+  "workflows": [
+    {
+      "file": "catch.json",
+      "id": "ciCatchMain00001",
+      "name": "Content Intelligence · Shared Catch",
+      "nodes": 25,
+      "source_sha256": "0c327dd080dac32981a49983f358a842171ecde2c801663369424b05eb1f3093"
+    },
+    {
+      "file": "summary-news.json",
+      "id": "ciSummaryNews001",
+      "name": "Content Intelligence · News Summary",
+      "nodes": 23,
+      "source_sha256": "a5c60822533cbda328d09b608dfff987fc3b82dfc534cdf82707d72061293fa5"
+    },
+    {
+      "file": "summary-benchmark.json",
+      "id": "ciSummaryBench01",
+      "name": "Content Intelligence · Benchmark Summary",
+      "nodes": 23,
+      "source_sha256": "bef355f83c27bc56f8399e18c1fe631f95fb37e1c79c5e1019b4d80c96009a50"
+    },
+    {
+      "file": "metrics.json",
+      "id": "ciMetricsMain01",
+      "name": "Content Intelligence · Article Metrics",
+      "nodes": 24,
+      "source_sha256": "6f14270d989890d09e70ba4e027488aa3039f1f73892250116b10f81518faf87"
+    },
+    {
+      "file": "entry-industry-news.json",
+      "id": "ciEntryNews0001",
+      "name": "Content Intelligence · Industry News Entry",
+      "nodes": 8,
+      "source_sha256": "03ed92286f7488bdcc742dd4af3989889cbb876137c31c5384c9bf40175c4e2a"
+    },
+    {
+      "file": "entry-ai-news.json",
+      "id": "ciEntryAi000001",
+      "name": "Content Intelligence · AI News Entry",
+      "nodes": 8,
+      "source_sha256": "032afa4741cdf1d2fb6d7f028259a2d977aded003f57928337a90d4b82a4af94"
+    },
+    {
+      "file": "entry-benchmark.json",
+      "id": "ciEntryBench001",
+      "name": "Content Intelligence · Benchmark Entry",
+      "nodes": 11,
+      "source_sha256": "bc7634fd3c429d7ec3babe1c77b0a4443a53e2ca23db673aed79f5a773604e85"
+    }
+  ]
+}

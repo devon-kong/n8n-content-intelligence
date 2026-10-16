@@ -1,0 +1,19 @@
+flowchart LR
+  C["Pipeline Config<br/>target · window · flags · prompt"] --> E
+  subgraph EN["n8n · three lightweight entry workflows"]
+    E["Industry news · AI news · Benchmark"]
+  end
+  E --> K
+  W["WeChat articles<br/>via wechat2rss"] --> K
+  subgraph CORE["Shared processing core"]
+    K["Catch<br/>normalize · deduplicate<br/>create / update / skip<br/>visibility verification"]
+  end
+  K --> T["Feishu Bitable<br/>separate target tables"]
+  K --> S["Summary · optional<br/>SQLite call log + LLM"]
+  K --> M["Metrics · optional<br/>SQLite 24h cache + API"]
+  S --> T
+  M --> T
+  classDef core fill:#fff0e9,stroke:#e56848,stroke-width:2px,color:#222;
+  classDef sink fill:#e8f4ff,stroke:#2878ac,color:#222;
+  class K core;
+  class T sink;

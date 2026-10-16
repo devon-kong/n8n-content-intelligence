@@ -1,0 +1,28 @@
+{
+  "mode": "synthetic_fixture",
+  "runtime": "exported n8n Code nodes in a Node.js harness; external storage simulated",
+  "as_of": "2026-10-16T12:00:00.000Z",
+  "counts": {
+    "create": 1,
+    "update": 1,
+    "skip": 1
+  },
+  "decisions": [
+    {
+      "article_id": "wx_1wzzjfz9yku",
+      "title": "New device approval",
+      "action": "create"
+    },
+    {
+      "article_id": "wx_1y186ko1bbg",
+      "title": "Updated export outlook",
+      "action": "update"
+    },
+    {
+      "article_id": "wx_2b7s9e66b3a",
+      "title": "AI operations 😀",
+      "action": "skip"
+    }
+  ],
+  "visibility_check": "passed"
+}

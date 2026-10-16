@@ -1,0 +1,48 @@
+{
+  "mode": "synthetic_fixture",
+  "as_of": "2026-10-16T12:00:00.000Z",
+  "account": {
+    "biz_id": "demo-account",
+    "account_name": "Demo Industry Digest"
+  },
+  "window_days": 7,
+  "feed": {
+    "title": "Synthetic portfolio feed",
+    "items": [
+      {
+        "title": "New device approval",
+        "url": "https://example.com/articles/new",
+        "date_published": "2026-10-15T08:00:00Z",
+        "content_html": "<h2>Device update</h2><p>A fictional manufacturer announced a new product.</p><img src=\"https://example.com/demo.png\">"
+      },
+      {
+        "title": "Updated export outlook",
+        "url": "https://example.com/articles/update",
+        "date_published": "2026-10-15T09:00:00Z",
+        "content_html": "<p>A fictional market update for demonstration only.</p>"
+      },
+      {
+        "title": "AI operations 😀",
+        "url": "https://example.com/articles/😀",
+        "date_published": "2026-10-15T10:00:00Z",
+        "content_html": "<p>A synthetic example showing shared article identifiers.</p>"
+      },
+      {
+        "title": "Outside time window",
+        "url": "https://example.com/articles/old",
+        "date_published": "2020-01-01T00:00:00Z",
+        "content_html": "<p>This should be filtered out.</p>"
+      }
+    ]
+  },
+  "expected_actions": [
+    "create",
+    "update",
+    "skip"
+  ],
+  "expected_counts": {
+    "create": 1,
+    "update": 1,
+    "skip": 1
+  }
+}

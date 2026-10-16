@@ -1,0 +1,775 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Content Intelligence\nSanitized portfolio export. Configure credentials and identifiers before using live services. See n8n/README.md.",
+        "height": 260,
+        "width": 980
+      },
+      "id": "ciCatchMain00001-n01",
+      "name": "README - V2 Stage1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        100,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "pipeline_key",
+              "type": "string"
+            },
+            {
+              "name": "target_base",
+              "type": "string"
+            },
+            {
+              "name": "target_table",
+              "type": "string"
+            },
+            {
+              "name": "window_days",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "id": "ciCatchMain00001-n02",
+      "name": "Execute Sub-workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:search",
+        "app_toke": "CONFIG_BASE_ID",
+        "table_id": "ACCOUNTS_TABLE_ID",
+        "user_id_type": "open_id",
+        "page_toke": "",
+        "page_size": 100,
+        "body": "={{ JSON.stringify({ field_names: ['biz_id', '账号名称', '是否启用', 'pipeline_key'], filter: { conjunction: 'and', conditions: [{ field_name: 'pipeline_key', operator: 'is', value: [$('Execute Sub-workflow Trigger').first().json.pipeline_key] }, { field_name: '是否启用', operator: 'is', value: [true] }] }, page_size: 100 }) }}"
+      },
+      "id": "ciCatchMain00001-n03",
+      "name": "Get Enabled Accounts From Feishu",
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        380,
+        300
+      ],
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "FEISHU_CREDENTIAL_ID",
+          "name": "Feishu Bitable — configure"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize Accounts From Feishu 公众号 List\nconst resp = items[0]?.json || {};\nif (resp.code !== undefined && resp.code !== 0) {\n  throw new Error('飞书公众号 List 查询失败：' + JSON.stringify(resp).slice(0, 500));\n}\nconst records = resp.data?.items || [];\nif (records.length === 0) {\n  throw new Error('没有找到启用的公众号，pipeline_key=' + $('Execute Sub-workflow Trigger').first().json.pipeline_key);\n}\n\n// P1：安全优先。当前版本仍只取 page_size=100，若被截断则直接失败，避免静默漏抓账号。\nif (resp.data?.has_more) {\n  throw new Error('公众号 List 查询结果超过 page_size=100，当前 Flow 未启用分页。为避免漏账号，本次执行已中断。请增加分页读取后再运行。');\n}\n\nfunction fsText(v) {\n  if (!v) return '';\n  if (Array.isArray(v)) return v.map(x => x?.text || '').join('').trim();\n  if (typeof v === 'object') return (v.text || v.link || '').trim();\n  return String(v).trim();\n}\nconst listMeta = {\n  list_total: records.length,\n  list_page: 1,\n  list_page_size: 100,\n  list_truncated: Boolean(resp.data?.has_more),\n};\nconst baseUrl = 'http://wechat2rss:8080';\nconst output = [];\nfor (const [i, rec] of records.entries()) {\n  const fields = rec.fields || {};\n  const bizId = fsText(fields.biz_id);\n  const accountName = fsText(fields['账号名称']);\n  if (!bizId) continue;\n  const feedJsonUrl = `${baseUrl}/feed/${encodeURIComponent(bizId)}.json`;\n  output.push({ json: {\n    account_index: i,\n    biz_id: bizId,\n    account_name: accountName,\n    feed_link: '',\n    feed_json_url: feedJsonUrl,\n    stage1_list_meta: listMeta,\n  }});\n}\nreturn output;\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "ciCatchMain00001-n04",
+      "name": "Normalize Accounts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.feed_json_url}}",
+        "options": {
+          "timeout": 60000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth"
+      },
+      "id": "ciCatchMain00001-n05",
+      "name": "Get Account JSON Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        300
+      ],
+      "continueOnFail": true,
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "FEED_QUERY_CREDENTIAL_ID",
+          "name": "wechat2rss Query Auth k — configure"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node: Normalize And Filter Feed Articles (V2 optimized - 全量 markdown，清洗噪音，记录失败账号)\nfunction stableHash(str) {\n  str = String(str||''); let h1=0xdeadbeef^str.length, h2=0x41c6ce57^str.length;\n  for(let i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}\n  h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);\n  h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);\n  return 'wx_'+(4294967296*(2097151&h2)+(h1>>>0)).toString(36);\n}\n\nfunction decodeHtml(t) {\n  if(!t||typeof t!=='string') return '';\n  return t.replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')\n    .replace(/&quot;/g,'\"').replace(/&#39;/g,\"'\")\n    .replace(/&#x([0-9a-f]+);/gi,(_,h)=>String.fromCharCode(parseInt(h,16)))\n    .replace(/&#(\\d+);/g,(_,c)=>String.fromCharCode(parseInt(c,10)));\n}\n\nfunction stripHtml(t){ return decodeHtml(String(t||'').replace(/<[^>]+>/g,'')).replace(/\\s+/g,' ').trim(); }\n\nfunction cleanMarkdown(md) {\n  if(!md||typeof md!=='string') return '';\n\n  // 1. 删除 Markdown 图片\n  md = md.replace(/!\\[[^\\]]*\\]\\([^)]+\\)/g, '');\n\n  // 2. Markdown 链接 → 纯文本（空文本则整段删除）\n  md = md.replace(/\\[([^\\]]*)\\]\\([^)]+\\)/g, (_, text) => text.trim());\n\n  // 3. 逐行清洗\n  const noiseKeywords = [\n    '阅读原文','点击蓝字','长按识别二维码','扫码关注','关注公众号','关注我们',\n    '点赞','在看','喜欢','分享','转载','版权声明','商务合作','广告',\n    '跳转微信','原创声明','禁止二改','禁止抄袭','禁止洗稿',\n  ];\n\n  const lines = md.split('\\n').map(l => l.trim()).filter(line => {\n    if(!line) return true; // 空行保留，后面统一压缩\n\n    // 删除独立 URL 行\n    if(/^https?:\\/\\/\\S+$/.test(line)) return false;\n    if(/^\\/\\/\\S+$/.test(line)) return false;\n\n    // 删除纯装饰符号行（3+ 重复非文字字符）\n    if(/^[\\-_*—=~·•●○▲▼▸►◆□■/\\\\|！☆★♥♦#@%&\\s]{3,}$/.test(line)) return false;\n\n    // 删除短噪音行（去掉格式符号后 ≤30 字，且含噪音关键词）\n    const plain = line.replace(/[*_~`#>]/g, '').trim();\n    if(plain.length <= 30 && noiseKeywords.some(k => line.includes(k))) return false;\n\n    return true;\n  });\n\n  return lines.join('\\n').replace(/\\n{3,}/g, '\\n\\n').trim();\n}\n\nfunction htmlToMarkdown(html) {\n  if(!html||typeof html!=='string') return '';\n  let t = html;\n\n  // 1. 删除媒体/无用块\n  t = t\n    .replace(/<script[\\s\\S]*?<\\/script>/gi,'')\n    .replace(/<style[\\s\\S]*?<\\/style>/gi,'')\n    .replace(/<svg[\\s\\S]*?<\\/svg>/gi,'')\n    .replace(/<video[\\s\\S]*?<\\/video>/gi,'')\n    .replace(/<audio[\\s\\S]*?<\\/audio>/gi,'')\n    .replace(/<iframe[\\s\\S]*?<\\/iframe>/gi,'')\n    .replace(/<canvas[\\s\\S]*?<\\/canvas>/gi,'');\n\n  // 2. 删除图片\n  t = t.replace(/<img[^>]*>/gi,'');\n\n  // 3. 链接只保留文本（空文本则删除）\n  t = t.replace(/<a[^>]*>([\\s\\S]*?)<\\/a>/gi,(_, inner) => {\n    const text = inner.replace(/<[^>]+>/g,'').trim();\n    return text||'';\n  });\n\n  // 4. 块级结构\n  t = t\n    .replace(/<br\\s*\\/?>/gi,'\\n')\n    .replace(/<h1[^>]*>([\\s\\S]*?)<\\/h1>/gi,'\\n# $1\\n')\n    .replace(/<h2[^>]*>([\\s\\S]*?)<\\/h2>/gi,'\\n## $1\\n')\n    .replace(/<h3[^>]*>([\\s\\S]*?)<\\/h3>/gi,'\\n### $1\\n')\n    .replace(/<h4[^>]*>([\\s\\S]*?)<\\/h4>/gi,'\\n#### $1\\n')\n    .replace(/<p[^>]*>([\\s\\S]*?)<\\/p>/gi,'\\n$1\\n')\n    .replace(/<li[^>]*>([\\s\\S]*?)<\\/li>/gi,'\\n- $1')\n    .replace(/<blockquote[^>]*>([\\s\\S]*?)<\\/blockquote>/gi,'\\n> $1\\n');\n\n  // 5. 行内结构\n  t = t\n    .replace(/<(strong|b)[^>]*>([\\s\\S]*?)<\\/\\1>/gi,'**$2**')\n    .replace(/<(em|i)[^>]*>([\\s\\S]*?)<\\/\\1>/gi,'*$2*')\n    .replace(/<code[^>]*>([\\s\\S]*?)<\\/code>/gi,'`$1`');\n\n  // 6. 去掉剩余 HTML 标签\n  t = t.replace(/<[^>]+>/g,'');\n\n  // 7. HTML 实体解码，再执行 cleanMarkdown\n  return cleanMarkdown(decodeHtml(t));\n}\n\nfunction parseDate(v) {\n  if(v===null||v===undefined||v==='') return null;\n  if(typeof v==='number'){ const ms=v<1e12?v*1000:v; const d=new Date(ms); return isNaN(d)?null:d; }\n  const r=String(v).trim();\n  if(/^\\d+$/.test(r)){ const n=Number(r); const ms=n<1e12?n*1000:n; const d=new Date(ms); return isNaN(d)?null:d; }\n  const d=new Date(r.includes('T')?r:r.replace(' ','T')); return isNaN(d)?null:d;\n}\nfunction pickFeedItems(feed) {\n  if(Array.isArray(feed)) return feed;\n  if(!feed||typeof feed!=='object') return [];\n  for(const k of ['items','entries','data']){ if(Array.isArray(feed[k])) return feed[k]; }\n  if(Array.isArray(feed.data?.items)) return feed.data.items;\n  return [];\n}\nfunction firstVal(...vals){ for(const v of vals){ if(v!==null&&v!==undefined&&String(v).trim()!=='') return v; } return ''; }\nfunction safeErrSummary(obj) {\n  try { return JSON.stringify(obj).slice(0, 500); } catch { return String(obj).slice(0, 500); }\n}\n\nconst windowDays = Number($('Execute Sub-workflow Trigger').first().json.window_days) || 7;\nconst afterTime = Date.now() - windowDays*24*60*60*1000;\nconst accountItems = $('Normalize Accounts').all();\nconst output = [];\n\nfor(let i=0;i<items.length;i++){\n  const feed=items[i].json||{};\n  const account=accountItems[i]?.json||{};\n\n  // P3：HTTP Request continueOnFail 后，失败账号不再静默丢失，写入 summary.failed_accounts。\n  const hasFeedError = Boolean(feed.error || feed.err || feed.message === 'ERROR' || feed.status === 'error');\n  if(hasFeedError){\n    output.push({ json: {\n      _stage1_failed_account: true,\n      account_index: account.account_index,\n      biz_id: account.biz_id || '',\n      account_name: account.account_name || '',\n      feed_json_url: account.feed_json_url || '',\n      error: safeErrSummary(feed.error || feed.err || feed),\n    }});\n    continue;\n  }\n\n  const feedItems=pickFeedItems(feed);\n  for(const it of feedItems){\n    const title=stripHtml(firstVal(it.title));\n    const url=String(firstVal(it.url,it.external_url,it.link,it.guid,it.id)).trim();\n    if(!title&&!url) continue;\n    const publishedRaw=firstVal(it.date_published,it.date_modified,it.published,it.updated,it.pubDate,it.created,it.create_time);\n    const publishedDate=parseDate(publishedRaw);\n    if(publishedDate&&publishedDate.getTime()<afterTime) continue;\n    const contentHtml=String(firstVal(it.content_html,it.content,it.html,it.raw_html));\n    const contentText=stripHtml(firstVal(it.content_text,it.summary,it.description,it.desc));\n    // V2：全量 markdown，清洗图片/链接/噪音，不截断正文\n    const markdown=contentHtml?htmlToMarkdown(contentHtml):cleanMarkdown(String(contentText||'').trim());\n    const publishTime=publishedDate?publishedDate.toISOString():String(publishedRaw||'');\n    const accountBizId=String(firstVal(account.biz_id,it.biz_id,it.biz,it.bid));\n    const accountName=String(firstVal(account.account_name,it.biz_name,feed.title));\n    const idSeed=firstVal(url,it.guid,it.id,['wechat2rss',accountBizId,publishTime,title||url].filter(Boolean).join(':'));\n    if (!markdown) continue;\n    output.push({ json: {\n      article_id: stableHash(idSeed),\n      biz_id: accountBizId,\n      account_name: accountName,\n      title,\n      url,\n      publish_time: publishTime,\n      markdown_content: markdown,\n      source: 'wechat2rss_feed_json',\n      monitor_status: 'new',\n    }});\n  }\n}\nreturn output;\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "ciCatchMain00001-n06",
+      "name": "Normalize And Filter Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node: Build Stage1 Summary\nfunction readSafe(name) { try { return $(name).all(); } catch { return []; } }\nconst articleItems = items.filter(i => i.json?.article_id);\nconst failedAccounts = items\n  .filter(i => i.json?._stage1_failed_account)\n  .map(i => ({\n    account_index: i.json.account_index,\n    biz_id: i.json.biz_id || '',\n    account_name: i.json.account_name || '',\n    feed_json_url: i.json.feed_json_url || '',\n    error: i.json.error || '',\n  }));\nconst accountItems = readSafe('Normalize Accounts');\nconst firstMeta = accountItems.find(i => i.json?.stage1_list_meta)?.json.stage1_list_meta || {};\nconst articles = articleItems.map(i => i.json);\nreturn [{ json: {\n  workflow: 'WeChat2RSS V2 Stage1 Main Optimized P0-P3',\n  account_count: accountItems.length,\n  article_count: articles.length,\n  failed_account_count: failedAccounts.length,\n  failed_accounts: failedAccounts,\n  window_days: Number($('Execute Sub-workflow Trigger').first().json.window_days) || 7,\n  list_total: firstMeta.list_total ?? accountItems.length,\n  list_truncated: Boolean(firstMeta.list_truncated),\n  generated_at: new Date().toISOString(),\n  articles,\n}}];\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "ciCatchMain00001-n07",
+      "name": "Build Stage1 Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "articles",
+        "options": {}
+      },
+      "id": "ciCatchMain00001-n08",
+      "name": "Split Out - Stage1 Articles",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2060,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "ciCatchMain00001-n09",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        3740,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node: Prepare Feishu Base Payload (V2 Stage1 optimized)\n// Stage1 只写基础字段；create/update 均不写 monitor_status，避免覆盖后续流程状态。\nfunction parseDate(v) {\n  if(v===null||v===undefined||v==='') return null;\n  if(typeof v==='number'){ const ms=v<1e12?v*1000:v; const d=new Date(ms); return isNaN(d.getTime())?null:d; }\n  const r=String(v).trim();\n  if(/^\\d+$/.test(r)){ const n=Number(r); const ms=n<1e12?n*1000:n; const d=new Date(ms); return isNaN(d.getTime())?null:d; }\n  const d=new Date(r.includes('T')?r:r.replace(' ','T')); return isNaN(d.getTime())?null:d;\n}\n\nreturn items.map(item => {\n  const a = item.json || {};\n  const publishDate = parseDate(a.publish_time);\n  const publishTimestamp = publishDate ? publishDate.getTime() : null;\n  const url = String(a.url || '').trim();\n  const title = String(a.title || '').trim();\n  const markdown = String(a.markdown_content || '');\n\n  const baseFields = {};\n  if (title)            baseFields['标题'] = title;\n  if (markdown)         baseFields['markdown'] = markdown;\n  if (publishTimestamp) baseFields['发布时间'] = publishTimestamp;\n  if (url)              baseFields['地址'] = { text: title || url, link: url, type: 'url' };\n  if (a.account_name)   baseFields['账号'] = String(a.account_name);\n  if (a.article_id)     baseFields['article_id'] = String(a.article_id);\n\n  return { json: {\n    ...a,\n    publish_time_ms: publishTimestamp,\n    feishu_create_fields: { ...baseFields },\n    feishu_update_fields: baseFields,\n  }};\n});\n"
+      },
+      "id": "ciCatchMain00001-n10",
+      "name": "Prepare Feishu Base Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:add",
+        "app_toke": "={{ $('Execute Sub-workflow Trigger').first().json.target_base }}",
+        "table_id": "={{ $('Execute Sub-workflow Trigger').first().json.target_table }}",
+        "user_id_type": "open_id",
+        "body": "={{ JSON.stringify({ fields: $json.feishu_create_fields }) }}"
+      },
+      "id": "ciCatchMain00001-n11",
+      "name": "Create New Feishu Record",
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        4300,
+        160
+      ],
+      "continueOnFail": true,
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "FEISHU_CREDENTIAL_ID",
+          "name": "Feishu Bitable — configure"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:update",
+        "app_toke": "={{ $('Execute Sub-workflow Trigger').first().json.target_base }}",
+        "table_id": "={{ $('Execute Sub-workflow Trigger').first().json.target_table }}",
+        "record_id": "={{$json.existing_record_id}}",
+        "user_id_type": "open_id",
+        "body": "={{ JSON.stringify({ fields: $json.feishu_update_fields }) }}"
+      },
+      "id": "ciCatchMain00001-n12",
+      "name": "Update Stage1 Fields",
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        4580,
+        440
+      ],
+      "continueOnFail": true,
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "FEISHU_CREDENTIAL_ID",
+          "name": "Feishu Bitable — configure"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code Node: Build Article Upsert Summary\n// 支持 create/update API 响应，也支持 skip unchanged 直接通过。\n// 任何 Feishu 写入错误都直接抛出，避免 continueOnFail 后被误认为成功。\nfunction fsVal(v) {\n  if (!v) return '';\n  if (Array.isArray(v)) return v.map(x => x?.text || '').join('').trim();\n  if (typeof v === 'object') return (v.link || v.text || '').trim();\n  return String(v).trim();\n}\nfunction summarizeError(j) {\n  try { return JSON.stringify(j).slice(0, 800); } catch { return String(j).slice(0, 800); }\n}\n\nreturn items.map(i => {\n  const j = i.json || {};\n\n  if (j.error || (j.code !== undefined && j.code !== 0)) {\n    throw new Error('飞书写入失败：' + summarizeError(j));\n  }\n\n  const rawArticleId =\n    j.article_id ||\n    j.data?.record?.fields?.article_id ||\n    j.record?.fields?.article_id ||\n    j.fields?.article_id ||\n    j.feishu_create_fields?.article_id ||\n    j.feishu_update_fields?.article_id ||\n    '';\n  const articleId = fsVal(rawArticleId) || String(rawArticleId || '').trim();\n\n  if (!articleId) {\n    throw new Error('无法从 create/update/skip 结果中恢复 article_id：' + summarizeError(j));\n  }\n\n  return { json: {\n    ...j,\n    article_id: articleId,\n    _stage1_upsert_done: true,\n    _stage1_action_done: j.action || 'write',\n  }};\n});\n"
+      },
+      "id": "ciCatchMain00001-n13",
+      "name": "Build Article Upsert Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4860,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sd = $getWorkflowStaticData('global');\n\nlet execId = '';\ntry { execId = String($execution?.id || ''); } catch (e) {}\nif (!execId) {\n  try { execId = String($('Build Stage1 Summary').first().json.generated_at || ''); } catch (e) {}\n}\nif (!execId) {\n  throw new Error('无法获取 execution id / generated_at');\n}\n\n// 并发安全：每个 execution 用独立 bucket，避免多个 Entry 同时触发同一子流程时互相清空计数\nif (!sd.barriers || typeof sd.barriers !== 'object') sd.barriers = {};\nif (!sd.barriers[execId]) {\n  sd.barriers[execId] = { seen: {}, triggered: false, created_at: Date.now() };\n}\nconst bucket = sd.barriers[execId];\n\nfor (const item of items) {\n  const j = item.json || {};\n  const articleId =\n    j.article_id ||\n    j.fields?.article_id ||\n    j.feishu_create_fields?.article_id ||\n    j.feishu_update_fields?.article_id;\n  if (articleId) {\n    bucket.seen[String(articleId)] = true;\n  }\n}\n\nconst processed = Object.keys(bucket.seen).length;\n\nlet total = 0;\ntry {\n  total = $('Aggregate Existing Map And Decide').all().filter(i => i.json?.article_id).length;\n} catch (e) {}\nif (!total || total <= 0) {\n  throw new Error('决策后的 article_count 为空或 <= 0，无法判断是否完成 upsert/skip');\n}\n\nlet result = [];\nif (processed >= total && !bucket.triggered) {\n  bucket.triggered = true;\n  result = [{ json: {\n    barrier_passed: true,\n    processed,\n    total,\n    article_ids: Object.keys(bucket.seen),\n    execution_id: execId,\n    triggered_at: new Date().toISOString(),\n  }}];\n}\n\n// 清理：删除超过 1 小时的旧 bucket（无论是否触发），避免 staticData 无限膨胀\nconst TTL_MS = 60 * 60 * 1000;\nconst now = Date.now();\nfor (const k of Object.keys(sd.barriers)) {\n  const b = sd.barriers[k];\n  if (b && b.created_at && (now - b.created_at) > TTL_MS) {\n    delete sd.barriers[k];\n  }\n}\n\nreturn result;\n"
+      },
+      "id": "ciCatchMain00001-n14",
+      "name": "Upsert Done Barrier",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5140,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-article-count",
+              "leftValue": "={{ $json.article_count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "ciCatchMain00001-n15",
+      "name": "IF Article Count > 0",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare Visibility Check\n// 构造 OR filter，每批最多 50 个 article_id（飞书 API 单层 conditions 上限）\nconst CHUNK_SIZE = 50;\nconst articleIds = ($json.article_ids || []).filter(Boolean);\nif (articleIds.length === 0) {\n  throw new Error('Barrier 输出中无 article_ids，无法做可见性检查');\n}\nconst chunks = [];\nfor (let i = 0; i < articleIds.length; i += CHUNK_SIZE) {\n  chunks.push(articleIds.slice(i, i + CHUNK_SIZE));\n}\nreturn chunks.map(chunk => ({\n  json: {\n    article_ids: articleIds,\n    total_expected: articleIds.length,\n    filter_body: JSON.stringify({\n      field_names: ['article_id', 'markdown', '\\u5730\\u5740'],\n      filter: { conjunction: 'or', conditions: chunk.map(id => ({\n        field_name: 'article_id',\n        operator: 'is',\n        value: [String(id)]\n      }))},\n      page_size: 100\n    })\n  }\n}));\n"
+      },
+      "id": "ciCatchMain00001-n16",
+      "name": "Prepare Visibility Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5420,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:search",
+        "app_toke": "={{ $('Execute Sub-workflow Trigger').first().json.target_base }}",
+        "table_id": "={{ $('Execute Sub-workflow Trigger').first().json.target_table }}",
+        "user_id_type": "open_id",
+        "page_toke": "",
+        "page_size": 100,
+        "body": "={{ $json.filter_body }}"
+      },
+      "id": "ciCatchMain00001-n17",
+      "name": "Feishu Visibility Search",
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        5700,
+        500
+      ],
+      "continueOnFail": false,
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "FEISHU_CREDENTIAL_ID",
+          "name": "Feishu Bitable — configure"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verify Count\n// 飞书字段值统一用富文本解包：纯文本字段=[{text,type}]，URL字段={link,text}\nfunction fsVal(v) {\n  if (v === null || v === undefined || v === '') return '';\n  if (Array.isArray(v)) return v.map(x => x?.text || x?.link || '').join('').trim();\n  if (typeof v === 'object') return (v.link || v.text || '').trim();\n  return String(v).trim();\n}\n\nconst resp = items[0]?.json || {};\nconst records = resp.data?.items || resp.items || [];\n\nlet expectedIds = [];\ntry {\n  const pcs = $('Prepare Visibility Check').all();\n  for (const it of pcs) {\n    for (const id of (it.json?.article_ids || [])) expectedIds.push(String(id).trim());\n  }\n  expectedIds = [...new Set(expectedIds.filter(Boolean))];\n} catch (e) {}\nif (expectedIds.length === 0) throw new Error('Verify Count：无法获取期望的 article_ids');\n\n// 以解包后的 article_id 为 key 建索引\nconst foundMap = {};\nfor (const rec of records) {\n  const fields = rec.fields || {};\n  const aid = fsVal(fields.article_id);\n  if (aid) foundMap[aid] = fields;\n}\n\nconst missing = [];\nconst noMarkdown = [];\nconst noUrl = [];\n\nfor (const id of expectedIds) {\n  const sid = String(id).trim();\n  if (!foundMap[sid]) { missing.push(sid); continue; }\n  const f = foundMap[sid];\n  if (!fsVal(f.markdown || f['摘要'])) noMarkdown.push(sid);\n  if (!fsVal(f['地址'] || f.url)) noUrl.push(sid);\n}\n\nconst errors = [];\nif (missing.length) errors.push('未在飞书找到：' + missing.join(', '));\nif (noMarkdown.length) errors.push('markdown 为空：' + noMarkdown.join(', '));\nif (noUrl.length) errors.push('地址为空：' + noUrl.join(', '));\n\nif (errors.length) throw new Error('飞书可见性检查失败 | ' + errors.join(' | '));\n\nreturn [{ json: { visibility_check: 'passed', found: Object.keys(foundMap).length, expected: expectedIds.length, article_ids: expectedIds } }];\n"
+      },
+      "id": "ciCatchMain00001-n18",
+      "name": "Verify Count",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6260,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate Search Results\n// 合并多批飞书查询结果，输出单个 item 供 Verify Count 使用\nconst allRecords = [];\nfor (const item of items) {\n  const records = item.json?.data?.items || item.json?.items || [];\n  allRecords.push(...records);\n}\nreturn [{ json: { data: { items: allRecords } } }];\n"
+      },
+      "id": "ciCatchMain00001-n19",
+      "name": "Aggregate Search Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5980,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Deduplicate Articles by article_id\n// 同一个 article_id 若在本轮重复出现，只保留第一条，避免重复查/写飞书。\nconst seen = new Set();\nconst output = [];\nfor (const item of items) {\n  const j = item.json || {};\n  const id = String(j.article_id || '').trim();\n  if (!id) continue;\n  if (seen.has(id)) continue;\n  seen.add(id);\n  output.push(item);\n}\nreturn output;\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "ciCatchMain00001-n20",
+      "name": "Deduplicate Articles by article_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare Existing Check Chunks\n// P0：批量查询本轮 article_id 是否已存在，每批最多 50 个，减少逐篇 Search。\nconst CHUNK_SIZE = 50;\nconst articleIds = items.map(i => String(i.json?.article_id || '').trim()).filter(Boolean);\nif (articleIds.length === 0) {\n  throw new Error('Prepare Existing Check Chunks：无 article_id，无法查询飞书已存在记录');\n}\nconst chunks = [];\nfor (let i = 0; i < articleIds.length; i += CHUNK_SIZE) {\n  chunks.push(articleIds.slice(i, i + CHUNK_SIZE));\n}\nreturn chunks.map(chunk => ({\n  json: {\n    article_ids: articleIds,\n    total_expected: articleIds.length,\n    filter_body: JSON.stringify({\n      field_names: ['article_id', '标题', '发布时间', '地址', '账号'],\n      filter: { conjunction: 'or', conditions: chunk.map(id => ({\n        field_name: 'article_id',\n        operator: 'is',\n        value: [String(id)]\n      }))},\n      page_size: 100\n    })\n  }\n}));\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "ciCatchMain00001-n21",
+      "name": "Prepare Existing Check Chunks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:search",
+        "app_toke": "={{ $('Execute Sub-workflow Trigger').first().json.target_base }}",
+        "table_id": "={{ $('Execute Sub-workflow Trigger').first().json.target_table }}",
+        "user_id_type": "open_id",
+        "page_toke": "",
+        "page_size": 100,
+        "body": "={{ $json.filter_body }}"
+      },
+      "id": "ciCatchMain00001-n22",
+      "name": "Feishu Search Existing Records",
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        3180,
+        300
+      ],
+      "continueOnFail": true,
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "FEISHU_CREDENTIAL_ID",
+          "name": "Feishu Bitable — configure"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate Existing Map And Decide\n// 合并批量查询结果，并判断每篇文章 create / update / skip。\nfunction fsVal(v) {\n  if (!v) return '';\n  if (Array.isArray(v)) return v.map(x => x?.text || '').join('').trim();\n  if (typeof v === 'object') return (v.link || v.text || '').trim();\n  return String(v).trim();\n}\nfunction normText(v) {\n  return String(fsVal(v) || '').replace(/\\r\\n/g, '\\n').trim();\n}\nfunction normUrl(v) {\n  if (!v) return '';\n  if (Array.isArray(v)) return v.map(x => x?.link || x?.text || '').join('').trim();\n  if (typeof v === 'object') return String(v.link || v.text || '').trim();\n  return String(v).trim();\n}\nfunction normTime(v) {\n  const raw = fsVal(v);\n  if (raw === '') return '';\n  const n = Number(raw);\n  if (!Number.isNaN(n)) return String(n);\n  const d = new Date(raw);\n  if (!Number.isNaN(d.getTime())) return String(d.getTime());\n  return String(raw).trim();\n}\nfunction summarizeError(j) {\n  try { return JSON.stringify(j).slice(0, 800); } catch { return String(j).slice(0, 800); }\n}\n\nconst existingMap = {};\nfor (const item of items) {\n  const resp = item.json || {};\n  if (resp.error || (resp.code !== undefined && resp.code !== 0)) {\n    throw new Error('批量查询飞书已有记录失败：' + summarizeError(resp));\n  }\n  const records = resp.data?.items || resp.items || resp.records || resp.data?.records || [];\n  for (const rec of records) {\n    const fields = rec.fields || {};\n    const aid = normText(fields.article_id);\n    if (!aid) continue;\n    existingMap[aid] = {\n      record_id: rec.record_id || rec.id || '',\n      fields,\n    };\n  }\n}\n\nconst sourceArticles = $('Prepare Feishu Base Payload').all().filter(i => i.json?.article_id);\nconst output = [];\nfor (const item of sourceArticles) {\n  const a = item.json || {};\n  const id = String(a.article_id || '').trim();\n  const ex = existingMap[id];\n  if (!ex) {\n    output.push({ json: { ...a, action: 'create', existing_record_id: '', changed_fields: ['__new_record__'] } });\n    continue;\n  }\n\n  const fields = ex.fields || {};\n  const changed = [];\n  if (normText(fields['标题']) !== normText(a.feishu_update_fields?.['标题'])) changed.push('标题');\n  if (normTime(fields['发布时间']) !== normTime(a.feishu_update_fields?.['发布时间'])) changed.push('发布时间');\n  if (normUrl(fields['地址']) !== normUrl(a.feishu_update_fields?.['地址'])) changed.push('地址');\n  if (normText(fields['账号']) !== normText(a.feishu_update_fields?.['账号'])) changed.push('账号');\n\n  if (changed.length > 0) {\n    if (!ex.record_id) {\n      throw new Error('已存在记录缺少 record_id，无法 update：article_id=' + id);\n    }\n    output.push({ json: {\n      ...a,\n      action: 'update',\n      existing_record_id: ex.record_id,\n      changed_fields: changed,\n    }});\n  } else {\n    output.push({ json: {\n      ...a,\n      action: 'skip',\n      existing_record_id: ex.record_id,\n      changed_fields: [],\n      skip_reason: 'unchanged',\n    }});\n  }\n}\n\nreturn output;\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "ciCatchMain00001-n23",
+      "name": "Aggregate Existing Map And Decide",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-action-create",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "create",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "ciCatchMain00001-n24",
+      "name": "IF Action Is Create",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4020,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-action-update",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "update",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "ciCatchMain00001-n25",
+      "name": "IF Action Is Update",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4300,
+        440
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Sub-workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Enabled Accounts From Feishu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Enabled Accounts From Feishu": {
+      "main": [
+        [
+          {
+            "node": "Normalize Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Accounts": {
+      "main": [
+        [
+          {
+            "node": "Get Account JSON Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Account JSON Feed": {
+      "main": [
+        [
+          {
+            "node": "Normalize And Filter Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize And Filter Articles": {
+      "main": [
+        [
+          {
+            "node": "Build Stage1 Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Stage1 Summary": {
+      "main": [
+        [
+          {
+            "node": "IF Article Count > 0",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Article Count > 0": {
+      "main": [
+        [
+          {
+            "node": "Split Out - Stage1 Articles",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Split Out - Stage1 Articles": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate Articles by article_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate Articles by article_id": {
+      "main": [
+        [
+          {
+            "node": "Prepare Feishu Base Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Feishu Base Payload": {
+      "main": [
+        [
+          {
+            "node": "Prepare Existing Check Chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Existing Check Chunks": {
+      "main": [
+        [
+          {
+            "node": "Feishu Search Existing Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feishu Search Existing Records": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Existing Map And Decide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Existing Map And Decide": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "IF Action Is Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "IF Action Is Create": {
+      "main": [
+        [
+          {
+            "node": "Create New Feishu Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Action Is Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Action Is Update": {
+      "main": [
+        [
+          {
+            "node": "Update Stage1 Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Article Upsert Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New Feishu Record": {
+      "main": [
+        [
+          {
+            "node": "Build Article Upsert Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Stage1 Fields": {
+      "main": [
+        [
+          {
+            "node": "Build Article Upsert Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Article Upsert Summary": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Upsert Done Barrier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Done Barrier": {
+      "main": [
+        [
+          {
+            "node": "Prepare Visibility Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Visibility Check": {
+      "main": [
+        [
+          {
+            "node": "Feishu Visibility Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feishu Visibility Search": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Search Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Search Results": {
+      "main": [
+        [
+          {
+            "node": "Verify Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v0"
+  },
+  "id": "ciCatchMain00001",
+  "name": "Content Intelligence · Shared Catch",
+  "active": false,
+  "staticData": null,
+  "pinData": {}
+}

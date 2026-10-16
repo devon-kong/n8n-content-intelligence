@@ -1,0 +1,8 @@
+{
+  "values": {
+    "CONFIG_BASE_ID": "YOUR_CONFIG_BASE_ID",
+    "ACCOUNTS_TABLE_ID": "YOUR_ACCOUNTS_TABLE_ID",
+    "PIPELINES_TABLE_ID": "YOUR_PIPELINES_TABLE_ID"
+  },
+  "workflow_ids": {}
+}

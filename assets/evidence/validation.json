@@ -1,0 +1,162 @@
+{
+  "checked_at_utc": "2026-10-16T14:35:48.538562+00:00",
+  "status": "offline_checks_passed",
+  "environment": {
+    "python": "3.14.7",
+    "node": "v26.9.0",
+    "platform": "Darwin"
+  },
+  "scope": "Static exports, exported Code-node fixture harness, Python mocked/unit tests and public-file checks. Not an n8n engine/import or live integration result.",
+  "checks": [
+    {
+      "check": "public_files",
+      "command": [
+        "python",
+        "-B",
+        "scripts/check_public.py"
+      ],
+      "cwd": ".",
+      "exit_code": 0
+    },
+    {
+      "check": "release_tools",
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "checks",
+        "-p",
+        "test_*.py"
+      ],
+      "cwd": ".",
+      "exit_code": 0
+    },
+    {
+      "check": "exported_code_nodes",
+      "command": [
+        "node",
+        "--test",
+        "checks/workflows.test.mjs"
+      ],
+      "cwd": ".",
+      "exit_code": 0
+    },
+    {
+      "check": "python_suite",
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider"
+      ],
+      "cwd": "python",
+      "exit_code": 0
+    },
+    {
+      "check": "catch_fixture_comparison",
+      "command": [
+        "python",
+        "-B",
+        "scripts/compare_demos.py"
+      ],
+      "cwd": ".",
+      "exit_code": 0
+    }
+  ],
+  "artifact_sha256": {
+    ".github/workflows/check.yml": "7ce4570759ee89fc6df28be41e91ea784dd1045b3d8004f2c8f945598e8245f3",
+    ".gitignore": "777a735861e4e5c3b3cfc81cbc2198ee9fb3232341108d56c315db65b0876972",
+    "AGENTS.md": "528c63f9f3e8d951fc43502377d2812cb7bc980da9bc2a6f362f8c3be30df34a",
+    "NOTICE.md": "47c62b6dd69787a8570edc1507b93256466a9440d39d63008bbb26157862e88b",
+    "README.md": "f45405f53d2b3df76df3073955aac7a331d69b87b272d7cd308f9eb522a33553",
+    "README.zh-CN.md": "c0dcc2a8e85ef2ff5fd5df7f558b40cb5d08a5ea1618cab5288b81645fb5a4af",
+    "assets/diagrams/architecture.png": "8ef2600a96af5103710a6d11a83eae3bf4e07565bbdbc02a63298093bf84e15d",
+    "assets/diagrams/architecture.svg": "a43e8b90bd36732c0a093fbad491d9cda639805715a38380b0c40808b6c83d90",
+    "assets/diagrams/cover.png": "d6a5ae7de0fd63859e3ebb659dc1fc63eda0c1a8c631b3e48d6793b8b7ccae40",
+    "assets/diagrams/cover.svg": "18ef9db73ea4e11a70ab4424398c54d676206564cbb7cc9bd457cf466bb851b8",
+    "assets/diagrams/fixture-results.png": "b304f7fd90a23e7a4817878a74b46ff572a130280c8b02a303c7a1b2dba56e75",
+    "assets/diagrams/fixture-results.svg": "8991b70bf28274e6095093544f5af9bcdbc7f546ccbf096372da8f5737677e31",
+    "assets/diagrams/source/architecture.mmd": "33b2786db07c98abfcbe0d4d725687cd464eca7074d5e79bc3ca803f89672b2f",
+    "assets/evidence/n8n-fixture-run.json": "8bdcf6e531d5603810a57315001a50705d483ca0a93f21bde8d031ad550b11b2",
+    "assets/evidence/python-fixture-run.json": "11e74e66a2dd43e66e10286487c92048ff472a10077214acf022a73c691bdf46",
+    "checks/n8n-harness.mjs": "77154f778770802ed4fb610ce58cba5380be522abf91126f5168889e941ef103",
+    "checks/test_prepare_n8n.py": "863514dfc9ae8a24d255a5de4a75aecb43aa1748b370aeb1e6e76c4b3cd599cf",
+    "checks/test_release_tools.py": "3abedffb63d8852893f817e28d8d041edd51cd4d38488f29f959e46359365d35",
+    "checks/workflows.test.mjs": "3a35bc41b5822b9ca0a9858f22036bc0fcbb55a5af12d691b71443395bdc0531",
+    "docs/architecture.md": "9f86773b6f04c3cc395281101e61d68c3a71bbb2c0b239ff85d11ce7eff4e5dd",
+    "docs/contributions.md": "316639b29208986eb145b153014e1727c3bafe34ba385958fc52be4dd773f4ae",
+    "docs/implementation-comparison.md": "a13662b44bf929248b6c2380d2eca9fcedce6bc7fb530e70cda4ead3f674fa7c",
+    "docs/portfolio.md": "35c8008b200173c0665d75b488f717cc905d1bbe2a9b392b5b4f2b6e063172f6",
+    "docs/validation.md": "a56e3b504c3e1734b21bde1342411a9b9a55b3f9a225e707f0ce922f9ea001c6",
+    "examples/catch-scenario.json": "ec524bcc1d5153309097053a42f74eac0ad7c69f16b9ab5d3326a1c5ea22e468",
+    "examples/n8n-install-config.json": "5863c2fd5678fe7a13bcd3878729d08d207171a7d018d880e6eb588f8d57d619",
+    "examples/pipeline-config.json": "028cb0643f96a3ff2b85beaec87e808dcfa21cee0b54a2ee62288cf364b9daab",
+    "n8n/README.md": "af889d2521cc60576f2783331f3765e06be0a6372ea77691335caee7fb8f66c1",
+    "n8n/manifest.json": "daa174784816c2b41a4cab2406af3ac8f4dbbe56813f63cc06129a1d83809580",
+    "n8n/workflows/catch.json": "28e9c32cb8f974f108814de5eafdc2d23915981e4a60c1f160dd2878b76ee2cc",
+    "n8n/workflows/entry-ai-news.json": "cef93021f3dd050765e6d21be6a1f160774b77aabbbc5cc8a90ea42f13903597",
+    "n8n/workflows/entry-benchmark.json": "9c59be82c2fe30e8c527ca0ccc7c94f1cdf02c4855ddfbe0a4b1271a0a0e2927",
+    "n8n/workflows/entry-industry-news.json": "83d1372dc46bf206cf776a02d0dae1b41a704141faafb4e9a2f37f63bba4d8ec",
+    "n8n/workflows/metrics.json": "752b4e5d9fa9b318708658298b1f49d2c6f4bfb4b71d52227bf68ab9de7e5ff8",
+    "n8n/workflows/summary-benchmark.json": "84ed492e7a3aacca815d9e7308ee2dcd987a28ae6e1adbcb849dc35841ad4067",
+    "n8n/workflows/summary-news.json": "e1e8502d54b08e79f785ae94d7ad5b980fae0b2e04e8943f2d760dc3f27b775b",
+    "python/.env.example": "adb5fc45310354b50c8ecb8bebdeaaa424d35bf70e1c56b56cba0a2d153e1cf6",
+    "python/README.md": "6123633602d798dffaff09dcc5d056ed2960a0e6e99bcc05060a3fd02965c17e",
+    "python/article_catch/__init__.py": "d8ebf3e8ab74fc41712b7e7a4e269f729a09f00a464f8de47de8ec462dd52688",
+    "python/article_catch/__main__.py": "4663f4d3cafbd5f1d4ece402ec5732982a689b8d04fefc646d67d97ebe14d839",
+    "python/article_catch/cli.py": "a875f8a6f0e311ab73138772661c5619ec0f05087a129a2ad4cbfb1bccbec9f2",
+    "python/article_catch/clients/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "python/article_catch/clients/feishu.py": "5f8ad7ee52b60a1822dab141693bc6f7d2cd49f982fc26e52b8f987ab1d8b6e4",
+    "python/article_catch/clients/jizhile.py": "8564231edfc8fb516f210998e0ab3693ca3be8414dcd849e0977ffde4e169935",
+    "python/article_catch/clients/llm.py": "e7c125dd374c1058d5e27cce6ae53dbee78c91157e81c7c8e3f123518accdc8f",
+    "python/article_catch/clients/wechat2rss.py": "5ef87614408a9b96d9bf758ed3483a71b6011e1def2b469ef3eadfb04bcb5fbb",
+    "python/article_catch/config.py": "8b98719d2adc26668f48021368dea6392830953ee2d8f208ac3c90f8ec8f2976",
+    "python/article_catch/flows/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "python/article_catch/flows/central_kitchen.py": "cb4c920055590ddfab9ed370e2b68259087e9e9c83830984dd920f413120c92e",
+    "python/article_catch/logging_utils.py": "d7e3409726dc1a357ac29b46f98c2cb4fb091d59f3d487a2b5c89558b0103a5b",
+    "python/article_catch/models.py": "5931815fad8233e9e2a95c8d4a5906f48eeaf85397e9d7ceb6b21d9591280462",
+    "python/article_catch/ops/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "python/article_catch/ops/feishu_upsert.py": "15faacf6d34af81c35379ddc8fffc551ea1949a0a850ee3ce6fc01ccf22bec79",
+    "python/article_catch/ops/pending_scan.py": "16ac810b7632d3b613ae15e0130b5e9cebb12101c83c0803454f4ddc91afb87a",
+    "python/article_catch/ops/visibility.py": "d54283f4b6106f091c53becd88d54445164170073657f537c4703e0403997eb0",
+    "python/article_catch/stages/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "python/article_catch/stages/catch.py": "b8272aee54080ebe7d23cc9fd8726bbc620c63debe4e481dcea789b6f65bcee8",
+    "python/article_catch/stages/metric.py": "b2028be0b37f28baf6e0f51e6e6fbf9da44aea76dc9804597958cdd5a809de7f",
+    "python/article_catch/stages/summary.py": "fb29e2b9a5816438ac818fa306752b8ff584cc8fff0f110f8fb532889b74e7e3",
+    "python/article_catch/store/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "python/article_catch/store/sqlite_log.py": "a7db0352548d80f053f05658e6a9f210e344b2908080b3fe0d913c2e5735e910",
+    "python/article_catch/util/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "python/article_catch/util/article.py": "ac64128974dbd9136295c95af90accd02307f4a28f87150443c6719bb35c4306",
+    "python/article_catch/util/feishu_fields.py": "65e949cc3f139ffea82ad394130f02a0359a3eae6b2dd9790024bc2fdfaca6bd",
+    "python/article_catch/util/html_md.py": "2d6728f0c679a4a96a2fff8fd16c8f86ae0dd076edb105ef6b6cc7949a87ba59",
+    "python/article_catch/util/text_norm.py": "ed9fa9be7248d8ebf6957c0d082883745ec7b45c2ea3386745df11c07a167719",
+    "python/requirements.txt": "e8a69402bcd8a6947d17c90325ba925c62d27c9f82942f4e4d1ea7364f3c723b",
+    "python/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "python/tests/test_article.py": "ee90d457839cd117105741c502e515c5fd1c8acdeffb639d3c196aadf658737e",
+    "python/tests/test_clients_mock.py": "b01c8ed2fda63db0899bfcbc80d4dc2bf952d2f5d077c375dbdb5e4f59e73863",
+    "python/tests/test_decide_upsert.py": "a65df23160f5f26bfd3a5110f89e61b442b49cb5dbf0a3b5bd40a01ebd384680",
+    "python/tests/test_flow_mock.py": "376a2ca37158fde2577506af5deb575abad8a0208ec530c50e8bee7528cbfa42",
+    "python/tests/test_public_port.py": "e2b4d95f19f720cc2b2a057018e27dee40046b103a10349de4ec74e357066535",
+    "python/tests/test_sqlite_log.py": "c532a80e01c1632f7105090c4ddb454171954bfabbffd772415b8f43e9eb5589",
+    "scripts/check_public.py": "1249cc4da3d260fb690c4f4c778d1fc748286210f8f3e31756cf15459237c014",
+    "scripts/compare_demos.py": "61471a3387bc18fc03207582954c1b6df5d0aa9b486cb17988657b019466c5a6",
+    "scripts/demo_n8n.mjs": "838febe55f29218f19375a136b64a3b467759e1d8e6e5c9bd0231abe65e42669",
+    "scripts/demo_python.py": "2d240a3fea387312a6677c2994eedbabbc2e4f3de4f02294eda8eb19479f24d5",
+    "scripts/prepare_n8n.py": "d910b0d84765139b890b80dc5cbe91926c73e108c8b3b5d31a1bb14a3d4af8ae",
+    "scripts/record_validation.py": "7eed3c7e4d59970351abaa4dde5469abeec17d79ea8b8cdf57c9c126a524e7bd",
+    "scripts/render_assets.py": "a6f1baddba37170e470c46b133d0f0f25872b4321d97f6031b474ed9aa63f163"
+  },
+  "pending": [
+    "Full n8n import and manual execution",
+    "Live service integration",
+    "Real n8n concurrent persistence",
+    "Python structured benchmark parity",
+    "Real product UI screenshots"
+  ]
+}
