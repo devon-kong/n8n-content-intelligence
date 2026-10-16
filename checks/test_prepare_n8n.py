@@ -12,6 +12,10 @@ spec.loader.exec_module(module)
 
 
 class PrepareExports(unittest.TestCase):
+    def setUp(self):
+        # Ignored local state is absent in a fresh clone / CI checkout.
+        (ROOT / '.work').mkdir(exist_ok=True)
+
     def config(self):
         return {'values': {'CONFIG_BASE_ID': 'demo-base', 'ACCOUNTS_TABLE_ID': 'demo-accounts', 'PIPELINES_TABLE_ID': 'demo-pipelines'}, 'workflow_ids': {'ciCatchMain00001': 'demo-imported-catch'}}
 
