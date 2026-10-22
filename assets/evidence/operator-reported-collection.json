@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "evidence_type": "operator_reported_aggregate",
+  "reported_by": "Devon",
+  "reported_on": "2026-10-22",
+  "operating_period": {
+    "duration_days": 15,
+    "operator_label": "前15天",
+    "continuous_operation_reported": true,
+    "calendar_start": null,
+    "calendar_end": null,
+    "article_publication_window_days": null
+  },
+  "collection": {
+    "unit": "article_records_per_pipeline",
+    "ai_news": 273,
+    "benchmark": 508,
+    "industry_news": 102,
+    "total_pipeline_records": 883,
+    "total_calculation": "273 + 508 + 102",
+    "cross_pipeline_unique_count": null
+  },
+  "provenance": {
+    "basis": "Counts and continuous operation confirmed by the project operator in conversation.",
+    "independently_audited": false,
+    "raw_operational_logs_included": false,
+    "production_services_accessed_for_this_update": false
+  },
+  "scope": {
+    "reported": "Continuous collection over the stated 15-day operating period, with the per-pipeline totals above.",
+    "not_measured_here": [
+      "uptime_percentage",
+      "run_success_rate",
+      "collection_completeness",
+      "cross_pipeline_deduplication",
+      "ai_enrichment_count_or_accuracy"
+    ],
+    "separate_public_evidence": "n8n-engine-demo.json records a synthetic mock-boundary engine test, not these operating totals."
+  }
+}

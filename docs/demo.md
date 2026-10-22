@@ -4,6 +4,8 @@
 
 [Watch the silent 60-second walkthrough](../assets/demo/walkthrough.mp4)
 
+[Watch the central-kitchen architecture film with music and effects](../assets/demo/central-kitchen.mp4). It opens with operator-reported collection totals from a 15-day operating period, explains the shared collection design, and labels the separate synthetic engine examples described on this page. [Film provenance](video.md).
+
 ![Recorded structured output rendered for review](../assets/demo/result-board.png)
 
 ## What you are seeing

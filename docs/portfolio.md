@@ -24,6 +24,7 @@ profile or imply a client engagement.
 
 ## Media ready for review
 
+- [Central-kitchen architecture film](../assets/demo/central-kitchen.mp4): a 60-second animated case study with music and effects, showing shared-core design, business-specific configuration and recorded outcomes. [Source and claim boundaries](video.md).
 - [Result board](../assets/demo/result-board.png): structured output rendered from
   recorded simulated destination rows; not Feishu UI.
 - [Source and structured result](../assets/demo/source-to-result.png): an example
