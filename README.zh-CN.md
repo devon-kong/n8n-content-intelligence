@@ -4,6 +4,14 @@
 
 [English](README.md) · [n8n 使用说明](n8n/README.md) · [Python 使用说明](python/README.md) · [验证记录](docs/validation.md)
 
+## 60 秒看懂中央厨房架构
+
+**一套共用抓取核心，三条可配置的业务流程。**
+
+[![观看中央厨房架构影片。](assets/demo/central-kitchen-poster.png)](assets/demo/central-kitchen.mp4)
+
+[打开或下载 MP4](assets/demo/central-kitchen.mp4) · [影片素材与证据范围](docs/video.md) · [原版证据讲解视频](assets/demo/walkthrough.mp4)
+
 ## 前 15 天：持续稳定抓取
 
 **系统连续运行 15 天，三条业务流程累计抓取 883 篇文章记录。**
@@ -20,8 +28,6 @@
 以上为 Devon 于 2026 年 10 月 22 日提供并确认的[前 15 天运行汇总](assets/evidence/operator-reported-collection.json)。15 天指系统连续运行时段；合计为三条流程数量之和，不作为跨流程去重后的独立文章数。公开包的独立测试证据另列如下。
 
 ![从真实 n8n 引擎演示输出绘制的合成情报结果；不是飞书界面截图。](assets/demo/result-board.png)
-
-[观看 60 秒中央厨房架构影片](assets/demo/central-kitchen.mp4) · [影片素材与证据范围](docs/video.md) · [原版证据讲解视频](assets/demo/walkthrough.mp4)
 
 上方结果图来自另一组**真实 n8n 引擎＋本地模拟接口**的测试输出。图中的文章、公司和模型回复均为人工编写的合成样例；演示证明编排、解析和写回，不代表实际模型生成、飞书集成验收或 AI 准确率。新版影片先展示前 15 天的运行汇总，再解释稳定抓取和中央厨房架构，并单独标注模拟测试片段；配有音乐和音效。原版视频由静态结果图组成，两者均不是连续实操录屏。
 

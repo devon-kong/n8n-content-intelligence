@@ -5,6 +5,14 @@
 [![Portfolio checks](https://github.com/devon-kong/n8n-content-intelligence/actions/workflows/check.yml/badge.svg)](https://github.com/devon-kong/n8n-content-intelligence/actions/workflows/check.yml)
 [中文介绍](README.zh-CN.md) · [n8n setup](n8n/README.md) · [Python setup](python/README.md) · [Validation](docs/validation.md)
 
+## Watch the 60-second film
+
+**One shared collection core. Three configurable business pipelines.**
+
+[![Watch the central-kitchen architecture film.](assets/demo/central-kitchen-poster.png)](assets/demo/central-kitchen.mp4)
+
+[Open or download the MP4](assets/demo/central-kitchen.mp4) · [Film and evidence boundaries](docs/video.md) · [Original evidence walkthrough](assets/demo/walkthrough.mp4)
+
 ## 15 days of continuous collection
 
 **883 article records collected across three business pipelines during a reported 15-day period of continuous operation.**
@@ -28,8 +36,6 @@ the articles' publication window. The total sums the three pipeline counts;
 independent public-package tests are documented separately below.
 
 ![Three synthetic research articles with structured summaries, classifications and key facts. Rendered from recorded engine output; not Feishu UI.](assets/demo/result-board.png)
-
-[Watch the 60-second central-kitchen architecture film](assets/demo/central-kitchen.mp4) · [Film and evidence boundaries](docs/video.md) · [Original evidence walkthrough](assets/demo/walkthrough.mp4)
 
 The board below the operating totals renders a separate **real n8n engine run with local mock connectors**. Its articles and model responses are authored synthetic fixtures. It demonstrates orchestration, parsing and writeback, without claiming actual LLM generation, Feishu integration or model accuracy. The film distinguishes the reported operating totals from these fixture examples.
 
