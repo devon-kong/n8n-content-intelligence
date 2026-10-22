@@ -5,39 +5,13 @@
 [![Portfolio checks](https://github.com/devon-kong/n8n-content-intelligence/actions/workflows/check.yml/badge.svg)](https://github.com/devon-kong/n8n-content-intelligence/actions/workflows/check.yml)
 [中文介绍](README.zh-CN.md) · [n8n setup](n8n/README.md) · [Python setup](python/README.md) · [Validation](docs/validation.md)
 
-## Watch the 60-second film
+## Architecture & Workflow Overview
 
 **One shared collection core. Three configurable business pipelines.**
 
 https://github.com/user-attachments/assets/292e2897-af19-499f-8ec5-c1fe630dc1c5
 
 [Open or download the MP4](assets/demo/central-kitchen.mp4) · [Film and evidence boundaries](docs/video.md) · [Original evidence walkthrough](assets/demo/walkthrough.mp4)
-
-## 15 days of continuous collection
-
-**883 article records collected across three business pipelines during a reported 15-day period of continuous operation.**
-
-| Pipeline | Articles collected |
-|---|---:|
-| AI news | 273 |
-| Benchmark | 508 |
-| Industry news | 102 |
-| **Combined pipeline count** | **883** |
-
-Stable collection is supported by a shared Catch core: normalize and deduplicate
-incoming articles, create or update changed records, skip unchanged records, and
-verify that expected output arrived. Business-specific configuration keeps the
-three pipelines on the same collection logic. Optional enrichment has separate
-responsibilities and review rules.
-
-These are [operator-reported aggregate results](assets/evidence/operator-reported-collection.json),
-provided by Devon on 22 October 2026. The 15 days describe system operation, not
-the articles' publication window. The total sums the three pipeline counts;
-independent public-package tests are documented separately below.
-
-![Three synthetic research articles with structured summaries, classifications and key facts. Rendered from recorded engine output; not Feishu UI.](assets/demo/result-board.png)
-
-The board below the operating totals renders a separate **real n8n engine run with local mock connectors**. Its articles and model responses are authored synthetic fixtures. It demonstrates orchestration, parsing and writeback, without claiming actual LLM generation, Feishu integration or model accuracy. The film distinguishes the reported operating totals from these fixture examples.
 
 ## The business problem
 
@@ -73,6 +47,10 @@ scoped integrations. [Contribution and third-party boundaries](docs/contribution
 This is an independent personal engineering project. It demonstrates reusable automation design and implementation, not a claimed client engagement.
 
 ## See the processing outcome
+
+![Three synthetic research articles with structured summaries, classifications and key facts. Rendered from recorded engine output; not Feishu UI.](assets/demo/result-board.png)
+
+The result board renders a **real n8n engine run with local mock connectors**. Its articles and model responses are authored synthetic fixtures. It demonstrates orchestration, parsing and writeback, without claiming actual LLM generation, Feishu integration or model accuracy. The film distinguishes the reported operating totals from these fixture examples.
 
 The representative **Benchmark Entry → Catch → structured Summary** demo runs in
 n8n 2.19.5 with a secure JavaScript runner. External connector nodes are explicitly
@@ -129,6 +107,28 @@ The companion preserves the layered business model while replacing visual orches
 It is **not a fully equivalent replacement**: benchmark enrichment fields differ and Python executes its stages sequentially. Shared catch-fixture IDs and decisions are checked; complete cross-implementation parity and live Python acceptance are not claimed.
 
 [Implementation comparison →](docs/implementation-comparison.md) · [Run Python →](python/README.md)
+
+## 15 days of continuous collection
+
+**883 article records collected across three business pipelines during a reported 15-day period of continuous operation.**
+
+| Pipeline | Articles collected |
+|---|---:|
+| AI news | 273 |
+| Benchmark | 508 |
+| Industry news | 102 |
+| **Combined pipeline count** | **883** |
+
+Stable collection is supported by a shared Catch core: normalize and deduplicate
+incoming articles, create or update changed records, skip unchanged records, and
+verify that expected output arrived. Business-specific configuration keeps the
+three pipelines on the same collection logic. Optional enrichment has separate
+responsibilities and review rules.
+
+These are [operator-reported aggregate results](assets/evidence/operator-reported-collection.json),
+provided by Devon on 22 October 2026. The 15 days describe system operation, not
+the articles' publication window. The total sums the three pipeline counts;
+independent public-package tests are documented separately in the [validation record](docs/validation.md).
 
 ## Validation and scope
 
