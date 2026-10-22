@@ -82,7 +82,7 @@ def run_summary(
                 model=model,
                 prompt_version=summary_version,
             )
-            if lock in ("ALREADY_SUCCESS", "ALREADY_PROCESSING", "LOCK_EXPIRED_REVIEW"):
+            if lock in ("ALREADY_SUCCESS", "ALREADY_PROCESSING", "LOCK_EXPIRED_REVIEW", "UNCERTAIN_REVIEW"):
                 report.skipped_lock += 1
                 continue
             if lock != "CLAIMED":

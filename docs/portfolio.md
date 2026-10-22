@@ -1,29 +1,60 @@
-# Upwork presentation draft
+# Upwork presentation copy and walkthrough
 
-[Portfolio](../README.md)
+[Portfolio](../README.md) · [Evidence and reproduction](demo.md)
 
 ## Title
 
-**Reusable n8n Content Monitoring & AI Enrichment Workflows**
+**n8n AI Research & Content Monitoring Automation**
+
+## Role
+
+Workflow architecture, API integration, data contracts and acceptance testing
 
 ## Short description
 
-I designed a configurable n8n system for monitoring WeChat articles, synchronizing them to Feishu Bitable, and running optional AI summaries and engagement metrics. Three business entries reuse one collection core with incremental writes, call-state tracking and output verification. A companion Python CLI demonstrates the same business decomposition. Includes sanitized workflows, source, synthetic demonstrations and clearly scoped validation evidence.
+I built a configurable n8n workflow that turns publisher feeds into source-linked research briefs with summaries, categories and key facts. Three business entries share one collection core with incremental writes, output checks and explicit review of uncertain paid calls. I owned the requirements, architecture and testing, using AI-assisted development. Includes a Python companion, setup and handover documentation, and a real n8n engine demo with clearly labeled synthetic service boundaries. Live service acceptance remains environment-specific.
 
-## Suggested capability labels
+## Suggested skills
 
 n8n · Workflow Automation · API Integration · Python · AI Integration
 
-These are positioning suggestions, not a statement about the current platform's allowed tag names or limits.
+These are capability suggestions; check the platform's current selectable tags
+and field limits when publishing. This file is a draft and does not publish a
+profile or imply a client engagement.
 
-## 60-second walkthrough
+## Media ready for review
 
-| Time | Show | Explain |
+- [Result board](../assets/demo/result-board.png): structured output rendered from
+  recorded simulated destination rows; not Feishu UI.
+- [Source and structured result](../assets/demo/source-to-result.png): an example
+  of preserving missing information for human follow-up.
+- [Execution outcomes](../assets/demo/execution-evidence.png): first run, stable
+  rerun and two rejected failure cases.
+- [Actual n8n editor capture](../assets/demo/n8n-catch-editor.png): the private
+  synthetic Catch workflow loaded in the real editor.
+- [60-second video](../assets/demo/walkthrough.mp4): a silent evidence walkthrough
+  using these rendered frames; not a live screencast.
+
+All article facts and model responses are authored synthetic fixtures. Do not
+call the video a live model demonstration or use it as an accuracy benchmark.
+
+## Result-first 60-second script
+
+| Time | Show | Suggested narration |
 |---|---|---|
-| 0–10s | Business problem and cover | Separate publisher groups need different destinations and AI rules |
-| 10–25s | Central-kitchen diagram and seven workflow files | Thin entries reuse shared processing; configuration owns business differences |
-| 25–40s | Run the synthetic demo | Three records take create/update/skip paths; outputs are inspectable |
-| 40–50s | Python code map and comparison | The same business model can be expressed as a CLI; state known gaps |
-| 50–60s | Validation page | Distinguish current offline evidence from pending live acceptance |
+| 0–20s | Final research brief | “A research team needs more than a list of links. This workflow organizes articles into summaries, categories and facts that can be reviewed against a source.” |
+| 20–35s | Source → structured output | “In this synthetic example, the effective date is missing. The structured output preserves that gap for follow-up. The response is authored; this checks parsing and writeback.” |
+| 35–50s | Recorded engine outcomes | “The n8n engine created and enriched three records. Repeating the run made no further writes or model calls. Duplicate configuration and missing output were rejected.” |
+| 50–60s | Role and delivery scope | “I designed the workflow and acceptance rules with AI-assisted implementation. Similar delivery includes configuration, integrations, tests and handover; actual services require their own acceptance.” |
 
-Use the [cover](../assets/diagrams/cover.svg) and [fixture graphic](../assets/diagrams/fixture-results.svg) as clearly labeled illustrations. An actual n8n UI capture and dedicated-table run would strengthen the demonstration later. Do not present generated graphics as a live execution screenshot or claim fabricated savings/success rates.
+## A concise proposal connection
+
+“I can apply this shared-workflow pattern to your monitoring and research process:
+clarify sources and output fields, build the integration, verify reruns and failure
+handling, and document the handover. My portfolio shows the implementation and
+its validation boundaries; your requested tools would be scoped and tested in
+your dedicated environment.”
+
+Choose one target connector only when the actual project requires it. Airtable,
+Notion and Google Sheets are not current implemented destinations. Avoid claims
+about hours saved, cost reduction or production success rates without measurements.

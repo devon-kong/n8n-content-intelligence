@@ -108,7 +108,7 @@ class SqliteLog:
         prompt_version: str,
         lock_ttl_ms: int = 30 * 60 * 1000,
     ) -> str:
-        """Return CLAIMED | ALREADY_SUCCESS | ALREADY_PROCESSING | LOCK_EXPIRED_REVIEW"""
+        """Return CLAIMED | ALREADY_SUCCESS | ALREADY_PROCESSING | LOCK_EXPIRED_REVIEW | UNCERTAIN_REVIEW"""
         self.init_schema()
         now = int(time.time() * 1000)
         lock_until = now + lock_ttl_ms
@@ -122,6 +122,13 @@ class SqliteLog:
                 if sr:
                     conn.commit()
                     return "ALREADY_SUCCESS"
+                uncertain = conn.execute(
+                    "SELECT id FROM summary_call_log WHERE task_key=? AND status='uncertain' LIMIT 1",
+                    (task_key,),
+                ).fetchone()
+                if uncertain:
+                    conn.commit()
+                    return "UNCERTAIN_REVIEW"
                 pr = conn.execute(
                     "SELECT id, lock_until as lu FROM summary_call_log WHERE task_key=? AND status='processing' LIMIT 1",
                     (task_key,),
@@ -246,6 +253,13 @@ class SqliteLog:
                 if sr:
                     conn.commit()
                     return "RECENT_SUCCESS"
+                uncertain = conn.execute(
+                    "SELECT id FROM metrics_call_log WHERE article_id=? AND status='uncertain' LIMIT 1",
+                    (article_id,),
+                ).fetchone()
+                if uncertain:
+                    conn.commit()
+                    return "UNCERTAIN_REVIEW"
                 pr = conn.execute(
                     "SELECT id, lock_until as lu FROM metrics_call_log WHERE article_id=? AND status='processing' LIMIT 1",
                     (article_id,),

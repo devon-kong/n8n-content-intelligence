@@ -54,4 +54,6 @@ article_catch/
 
 The original port's feed-auth parameter and non-BMP Unicode hashing were corrected in this public copy with regression tests. Business rules otherwise remain the selected port's implementation. In particular, the benchmark's structured labeling is not implemented here, and orchestration is sequential. See the comparison before treating Python as a replacement.
 
+Uncertain paid calls stay blocked across later runs and process restarts. Use the shared [local review procedure](../docs/paid-call-recovery.md) to inspect and explicitly authorize a retry; the review tool never calls a service.
+
 Rollback: stop the external CLI schedule; retain SQLite state for investigation. Re-enabling an earlier n8n deployment is an independent operational decision. Neither this CLI nor the fixture tools modify your upstream service configuration. Do not publish raw live exceptions or API response bodies as portfolio evidence; review and redact operational logs separately.
