@@ -9,7 +9,7 @@
 
 **One shared collection core. Three configurable business pipelines.**
 
-[![Watch the central-kitchen architecture film.](assets/demo/central-kitchen-poster.png)](assets/demo/central-kitchen.mp4)
+https://github.com/user-attachments/assets/292e2897-af19-499f-8ec5-c1fe630dc1c5
 
 [Open or download the MP4](assets/demo/central-kitchen.mp4) · [Film and evidence boundaries](docs/video.md) · [Original evidence walkthrough](assets/demo/walkthrough.mp4)
 

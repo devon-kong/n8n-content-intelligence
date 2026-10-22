@@ -8,7 +8,7 @@
 
 **一套共用抓取核心，三条可配置的业务流程。**
 
-[![观看中央厨房架构影片。](assets/demo/central-kitchen-poster.png)](assets/demo/central-kitchen.mp4)
+https://github.com/user-attachments/assets/292e2897-af19-499f-8ec5-c1fe630dc1c5
 
 [打开或下载 MP4](assets/demo/central-kitchen.mp4) · [影片素材与证据范围](docs/video.md) · [原版证据讲解视频](assets/demo/walkthrough.mp4)
 
