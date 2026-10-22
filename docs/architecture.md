@@ -41,7 +41,7 @@ Use one pipeline assignment per account in this version. The account query fails
 
 **Pipeline Config**
 
-Use the rows in [pipeline-config.json](../examples/pipeline-config.json) as a template, not as an API import payload. Configure `pipeline_key`, `target_base`, `target_table`, `summary_prompt` and `summary_version` as text; flags as checkboxes; `model`, `process_mode` and `window_days` as text or compatible single-select values. Exactly one enabled matching row must exist. The selected Entry does not update `last_run`.
+Use the rows in [pipeline-config.json](../examples/pipeline-config.json) as a template, not as an API import payload. Configure `pipeline_key`, `target_base`, `target_table`, `summary_prompt` and `summary_version` as text; flags as checkboxes; `model`, `process_mode` and `window_days` as text or compatible single-select values. Exactly one enabled matching row must exist. n8n Entry queries request up to two rows and reject multiple matches or `has_more=true`, so a paginated response cannot silently establish uniqueness. The selected Entry does not update `last_run`.
 
 **Article table: six Catch-owned fields**
 
@@ -68,7 +68,7 @@ The trade-off is intentional: a body-only correction is not refreshed automatica
 
 ## Call state, completion and limits
 
-Summary/Metric use SQLite call logs and atomic lock decisions to reuse successes and avoid blindly repeating uncertain paid calls. Lock expiry is a review condition, not proof that a remote request never executed. Cache/task keys are primarily article/model/prompt-version based; arbitrary cross-table and multi-tenant isolation is not guaranteed. Use distinct prompt versions and controlled account ownership, then validate your actual table-sharing design.
+Summary/Metric use SQLite call logs and atomic lock decisions to reuse successes and avoid blindly repeating uncertain paid calls. Lock expiry changes the old call to `uncertain` and stops that attempt. Later attempts return `UNCERTAIN_REVIEW` while any uncertain row for the same key remains, including after restart. This is a review condition, not proof that a remote request never executed. An explicit [local review](paid-call-recovery.md) can authorize retry of a selected row and atomically preserve an audit record; it makes no remote request. Cache/task keys are primarily article/model/prompt-version based; arbitrary cross-table and multi-tenant isolation is not guaranteed. Use distinct prompt versions and controlled account ownership, then validate your actual table-sharing design.
 
 The selected N8N Catch retains an execution-ID bucket barrier because the historical deployment reported issues with loop completion routing. The harness tests interleaved buckets in one JavaScript state. That is **not proof of safe persistence across real concurrent n8n executions**; the historical workaround must be revalidated in the chosen runtime.
 

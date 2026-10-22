@@ -38,7 +38,7 @@ def scan(root: Path) -> tuple[list[str], int]:
             continue
         if (p.name.startswith('.env') and p.name != '.env.example') or p.suffix in {'.db', '.sqlite', '.sqlite3', '.pyc'}:
             errors.append(f"{rel}: runtime/secret file")
-        if p.suffix.lower() in {'.png', '.jpg', '.jpeg', '.gif'}:
+        if p.suffix.lower() in {'.png', '.jpg', '.jpeg', '.gif', '.mp4'}:
             continue  # Visual inspection is a separate release step.
         try:
             text = p.read_text(encoding='utf-8')

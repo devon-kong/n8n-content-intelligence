@@ -22,8 +22,10 @@ The two implementations express the same business decomposition. They are not cu
 
 Both paths use [the same synthetic feed](../examples/catch-scenario.json). The n8n harness executes exported normalization, deduplication, payload, decision, barrier and visibility Code nodes with supplied context and simulated storage. The Python demo calls normalization and upsert-decision functions. Their three article IDs and ordered create/update/skip decisions must match.
 
-The n8n test suite additionally checks stable reruns, missing-record rejection and bucket isolation within one harness state. These are targeted behavioral checks. They do not execute community nodes, n8n's scheduler or paid providers.
+The n8n test suite additionally checks stable reruns, missing-record rejection, bucket isolation within one harness state, config pagination and persistent uncertain-call review with real SQLite. These are targeted behavioral checks. They do not execute community nodes, n8n's scheduler or paid providers.
 
 ## Why keep both implementations?
 
 n8n is the primary visual automation deliverable: it makes routing and integrations inspectable. Python demonstrates the ability to express processing as reusable code, with testable HTTP boundaries and process-style execution. Selection depends on the client's operational environment; no unmeasured cost or memory comparison is claimed.
+
+A separate [real-engine demonstration](demo.md) executes one n8n path with explicit local connector substitutions. It is not a cross-implementation or live-service parity test.

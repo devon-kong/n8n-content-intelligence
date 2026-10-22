@@ -16,6 +16,19 @@ The public release curates the latest selected seven n8n workflows and an existi
 - **wechat2rss** supplies the upstream article feeds. The crawler/feed service is not authored or bundled here. Its [deployment documentation](https://wechat2rss.xlab.app/deploy/) governs that integration.
 - **Feishu / Bitable**, **DeepSeek** and the metrics provider supply their respective hosted services.
 - `n8n-nodes-feishu-lite`, `n8n-nodes-deepseek`, `better-sqlite3` and Python packages are separate dependencies. Their licenses and service terms remain applicable; compatible community-node versions still need fresh acceptance.
-- Architecture illustrations and synthetic examples in this public package were prepared for the portfolio. They are not product UI screenshots or historical production data.
+- Architecture illustrations and synthetic examples in this public package were prepared for the portfolio. They are not product UI screenshots or historical production data. Separately labeled n8n UI captures show only the isolated synthetic demo instance.
 
 No third-party application source, private provider credentials, real article corpus or production service is bundled. The API paths in the code describe integration points, not an endorsement or availability guarantee.
+
+## Public-package reliability and demonstration update
+
+The public copy now rejects ambiguous/paginated Entry configurations and keeps
+uncertain paid calls blocked across retries and restarts. Explicit retry review
+is recorded atomically in SQLite. Tests execute the exported locking Code with
+real SQLite and exercise Python restart behavior and the recovery command.
+
+A separate opt-in demonstration runs the n8n engine against local mock connector
+boundaries. The research brief and video render its recorded synthetic output.
+Article text and model replies are authored fixtures, not actual model outputs
+or a client dataset. [Demo provenance](demo.md) records the substitutions and
+remaining real-service acceptance work.

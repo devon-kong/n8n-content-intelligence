@@ -82,7 +82,7 @@ def run_metric(
                 record_id=record_id,
                 url=url,
             )
-            if lock in ("RECENT_SUCCESS", "ALREADY_PROCESSING", "LOCK_EXPIRED_REVIEW"):
+            if lock in ("RECENT_SUCCESS", "ALREADY_PROCESSING", "LOCK_EXPIRED_REVIEW", "UNCERTAIN_REVIEW"):
                 # RECENT_SUCCESS raced — try cache write once more
                 if lock == "RECENT_SUCCESS":
                     cached2 = store.metrics_get_fresh_success(article_id)

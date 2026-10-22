@@ -14,7 +14,7 @@ REPORT.write_text(json.dumps({'status': 'recording'}) + '\n')
 steps = [
     ('public_files', [sys.executable, '-B', 'scripts/check_public.py'], ROOT),
     ('release_tools', [sys.executable, '-B', '-m', 'unittest', 'discover', '-s', 'checks', '-p', 'test_*.py'], ROOT),
-    ('exported_code_nodes', ['node', '--test', 'checks/workflows.test.mjs'], ROOT),
+    ('exported_code_nodes', ['node', '--test', *[str(p.relative_to(ROOT)) for p in sorted((ROOT / 'checks').glob('*.test.mjs'))]], ROOT),
     ('python_suite', [sys.executable, '-B', '-m', 'pytest', '-q', '-p', 'no:cacheprovider'], ROOT / 'python'),
     ('catch_fixture_comparison', [sys.executable, '-B', 'scripts/compare_demos.py'], ROOT),
 ]
@@ -37,10 +37,11 @@ report = {
     'checked_at_utc': datetime.now(timezone.utc).isoformat(),
     'status': 'offline_checks_passed',
     'environment': {'python': platform.python_version(), 'node': subprocess.check_output(['node', '--version'], text=True).strip(), 'platform': platform.system()},
-    'scope': 'Static exports, exported Code-node fixture harness, Python mocked/unit tests and public-file checks. Not an n8n engine/import or live integration result.',
+    'scope': 'Static exports, exported Code-node fixtures and real SQLite regression tests, Python mocked/unit tests, recovery/demo tool tests and public-file checks. Not an n8n engine/import or live integration result.',
     'checks': results,
     'artifact_sha256': hashes,
-    'pending': ['Full n8n import and manual execution', 'Live service integration', 'Real n8n concurrent persistence', 'Python structured benchmark parity', 'Real product UI screenshots'],
+    'pending': ['Original community-node execution', 'Live service integration and actual AI output quality', 'Other Entry/News Summary/Metrics engine coverage', 'Real n8n concurrent persistence', 'Python structured benchmark parity', 'Live Feishu visuals'],
+    'separate_engine_evidence': 'assets/evidence/n8n-engine-demo.json',
 }
 REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
 print('Recorded successful offline checks and artifact hashes; live gates remain pending.')

@@ -33,6 +33,16 @@ class ReleaseChecks(unittest.TestCase):
             errors, _ = module.scan(root)
             self.assertTrue(any('missing/outside' in e for e in errors))
 
+    def test_reviewable_video_is_allowed_but_other_binary_is_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'walkthrough.mp4').write_bytes(b'\x00\x00\x00\x18ftypmp42\xff')
+            errors, _ = module.scan(root)
+            self.assertEqual(errors, [])
+            (root / 'unknown.bin').write_bytes(b'\xff\xfe')
+            errors, _ = module.scan(root)
+            self.assertTrue(any('unexpected binary' in error for error in errors))
+
     def test_blank_environment_template_is_allowed(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)

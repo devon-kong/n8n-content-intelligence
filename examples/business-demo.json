@@ -1,0 +1,47 @@
+{
+  "provenance": "All companies, articles, facts and model responses are authored synthetic fixtures. No real model generation or commercial results are represented.",
+  "articles": [
+    {
+      "title": "Northstar Devices opens a distributor program",
+      "url": "https://example.com/demo/distributor-program",
+      "body": "Fictional example: Northstar Devices opened a distributor program for two markets. Applications close on 30 November. No approval or sales outcome is stated.",
+      "model_response": {
+        "summary_v2": "Northstar Devices is seeking distributors in two markets, with applications due on 30 November. The article gives no approval or sales outcome.",
+        "article_type": "Channel opportunity",
+        "type_reason": "The article announces a distributor application window.",
+        "policy_entity": [],
+        "topic_tags_v2": ["Distribution", "Market entry"],
+        "target_company_type": ["Medical-device distributor"],
+        "key_facts": {"markets": 2, "deadline": "30 November", "outcome": "Not stated"}
+      }
+    },
+    {
+      "title": "Harbor Market revises its import checklist",
+      "url": "https://example.com/demo/import-checklist",
+      "body": "Fictional example: Harbor Market published an updated import checklist. It adds a translated label and a distributor contact. The effective date is not stated.",
+      "model_response": {
+        "summary_v2": "The revised checklist asks for a translated label and a distributor contact. The effective date is missing and requires follow-up.",
+        "article_type": "Policy update",
+        "type_reason": "The article changes required import documentation.",
+        "policy_entity": ["Importers"],
+        "topic_tags_v2": ["Documentation", "Compliance"],
+        "target_company_type": ["Exporter", "Importer"],
+        "key_facts": {"new_items": ["Translated label", "Distributor contact"], "effective_date": "Not stated"}
+      }
+    },
+    {
+      "title": "Atlas Operations begins an AI triage pilot",
+      "url": "https://example.com/demo/triage-pilot",
+      "body": "Fictional example: Atlas Operations is piloting AI classification for incoming research articles. Human review remains required. No measured accuracy, savings or completion date is reported.",
+      "model_response": {
+        "summary_v2": "Atlas Operations is testing AI classification with human review. The source reports no measured accuracy, savings or completion date.",
+        "article_type": "Operations experiment",
+        "type_reason": "The article describes a pilot rather than a measured business result.",
+        "policy_entity": [],
+        "topic_tags_v2": ["AI", "Human review"],
+        "target_company_type": ["Research team"],
+        "key_facts": {"status": "Pilot", "human_review": "Required", "measured_savings": "Not reported"}
+      }
+    }
+  ]
+}

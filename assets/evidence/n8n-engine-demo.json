@@ -1,0 +1,355 @@
+{
+  "recorded_at_utc": "2026-10-22T05:01:29.505120+00:00",
+  "mode": "n8n_engine_with_mock_connectors",
+  "n8n_version": "2.19.5",
+  "node_version": "v22.22.0",
+  "better_sqlite3_version": "12.4.1",
+  "runner": "internal JavaScript runner, secure mode; explicit native SQLite binding in demo copies",
+  "community_nodes": "disabled; original exports imported but community-node execution not tested",
+  "private_child_versions": "Catch and Benchmark Summary published in isolated demo instance only",
+  "original_import": "seven inactive exports accepted by CLI import",
+  "scope": "Real n8n CLI and Code nodes; connector nodes replaced by local HTTP fixtures. Authored model responses, no actual LLM/Feishu/feed calls. No original community-node execution or live integration claim.",
+  "source_sha256": {
+    "catch.json": "28e9c32cb8f974f108814de5eafdc2d23915981e4a60c1f160dd2878b76ee2cc",
+    "entry-ai-news.json": "c09b009b8f6fe03eb28abb3eaac2b40764b0526ec49614b43b6ab39035af61a3",
+    "entry-benchmark.json": "442dc24be12ec434ec88faac9826cda69bd9bd1c5599a421784da161ed4aaa64",
+    "entry-industry-news.json": "8eaee5a9f11960995b77ca830b644c970eab3b31edc20c78ef91e04c047df7da",
+    "metrics.json": "a9db1b441213700996d538f3f347aebb7c0a61f6e809671b82d88b1348645238",
+    "summary-benchmark.json": "984b30a600f43f1192df43ab7f22745e6ceb28a8a042b87994c434e094fc7fc7",
+    "summary-news.json": "277dd36b209b04dea0e43feb7663ffaacbcdff5224ae8477f0703968a897a115"
+  },
+  "substitutions": [
+    {
+      "workflow": "catch.json",
+      "node": "Get Enabled Accounts From Feishu",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "catch.json",
+      "node": "Normalize Accounts",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "catch.json",
+      "node": "Get Account JSON Feed",
+      "substitution": "n8n-nodes-base.httpRequest -> local HTTP fixture"
+    },
+    {
+      "workflow": "catch.json",
+      "node": "Create New Feishu Record",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "catch.json",
+      "node": "Update Stage1 Fields",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "catch.json",
+      "node": "Feishu Visibility Search",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "catch.json",
+      "node": "Feishu Search Existing Records",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "entry-ai-news.json",
+      "node": "Schedule Trigger",
+      "substitution": "inactive schedule -> manual CLI entry"
+    },
+    {
+      "workflow": "entry-ai-news.json",
+      "node": "Read Pipeline Config",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "entry-benchmark.json",
+      "node": "Schedule Trigger",
+      "substitution": "inactive schedule -> manual CLI entry"
+    },
+    {
+      "workflow": "entry-benchmark.json",
+      "node": "Read Pipeline Config",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "entry-industry-news.json",
+      "node": "Schedule Trigger",
+      "substitution": "inactive schedule -> manual CLI entry"
+    },
+    {
+      "workflow": "entry-industry-news.json",
+      "node": "Read Pipeline Config",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Init SQLite",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Read Feishu Pending",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Check SQLite 24h Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Write Feishu From Cache",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Mark SQLite Synced Cache",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Atomic Lock",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Call Jizhile API",
+      "substitution": "n8n-nodes-base.httpRequest -> local HTTP fixture"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Write SQLite Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Write Feishu Metrics",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Mark SQLite Synced Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Write SQLite Non-Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "metrics.json",
+      "node": "Handle Cache Invalid",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-benchmark.json",
+      "node": "Init SQLite",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-benchmark.json",
+      "node": "Read Feishu Pending",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "summary-benchmark.json",
+      "node": "Check SQLite Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-benchmark.json",
+      "node": "Atomic Lock",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-benchmark.json",
+      "node": "Call DeepSeek",
+      "substitution": "n8n-nodes-deepseek.deepSeek -> local HTTP fixture"
+    },
+    {
+      "workflow": "summary-benchmark.json",
+      "node": "Write SQLite Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-benchmark.json",
+      "node": "Write Feishu Summary",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "summary-benchmark.json",
+      "node": "Mark SQLite Synced Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-benchmark.json",
+      "node": "Write SQLite Non-Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-news.json",
+      "node": "Init SQLite",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-news.json",
+      "node": "Read Feishu Pending",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "summary-news.json",
+      "node": "Check SQLite Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-news.json",
+      "node": "Atomic Lock",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-news.json",
+      "node": "Call DeepSeek",
+      "substitution": "n8n-nodes-deepseek.deepSeek -> local HTTP fixture"
+    },
+    {
+      "workflow": "summary-news.json",
+      "node": "Write SQLite Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-news.json",
+      "node": "Write Feishu Summary",
+      "substitution": "n8n-nodes-feishu-lite.feishuNode -> local HTTP fixture"
+    },
+    {
+      "workflow": "summary-news.json",
+      "node": "Mark SQLite Synced Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    },
+    {
+      "workflow": "summary-news.json",
+      "node": "Write SQLite Non-Success",
+      "substitution": "local feed hostname / private SQLite path / explicit native binding for secure runner"
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "first_run",
+      "exit_code": 0,
+      "status": "success",
+      "last_node": "Check Metric Enabled",
+      "error_message": null,
+      "created": 3,
+      "updated": 0,
+      "summary_fixture_calls": 3,
+      "summary_writes": 3
+    },
+    {
+      "scenario": "stable_rerun",
+      "exit_code": 0,
+      "status": "success",
+      "last_node": "Check Metric Enabled",
+      "error_message": null,
+      "created": 0,
+      "updated": 0,
+      "summary_fixture_calls": 0,
+      "summary_writes": 0
+    },
+    {
+      "scenario": "duplicate_config",
+      "exit_code": 1,
+      "status": "error",
+      "last_node": "Build Config Snapshot",
+      "error_message": "pipeline_key=benchmark 配置未能确认唯一（返回 1 条或仍有分页），请仅保留一条启用配置 [line 10]",
+      "created": 0,
+      "updated": 0,
+      "summary_fixture_calls": 0,
+      "summary_writes": 0
+    },
+    {
+      "scenario": "missing_output",
+      "exit_code": 1,
+      "status": "error",
+      "last_node": "Execute Catch Flow",
+      "error_message": "飞书可见性检查失败 | 未在飞书找到：wx_lj1petfhxz [line 48]",
+      "created": 0,
+      "updated": 0,
+      "summary_fixture_calls": 0,
+      "summary_writes": 0
+    }
+  ],
+  "rows": [
+    {
+      "record_id": "demo-record-1",
+      "fields": {
+        "标题": "Northstar Devices opens a distributor program",
+        "markdown": "Fictional example: Northstar Devices opened a distributor program for two markets. Applications close on 30 November. No approval or sales outcome is stated.",
+        "发布时间": 1792558876865,
+        "地址": {
+          "text": "Northstar Devices opens a distributor program",
+          "link": "https://example.com/demo/distributor-program",
+          "type": "url"
+        },
+        "账号": "Synthetic Research Desk",
+        "article_id": "wx_lj1petfhxz",
+        "摘要": "Northstar Devices is seeking distributors in two markets, with applications due on 30 November. The article gives no approval or sales outcome.",
+        "summary_status": "summarized",
+        "文章类型": "Channel opportunity",
+        "类型原因": "The article announces a distributor application window.",
+        "政策对象": "[]",
+        "主题标签": "[\"Distribution\",\"Market entry\"]",
+        "企业类型": "[\"Medical-device distributor\"]",
+        "关键事实": "{\"markets\":2,\"deadline\":\"30 November\",\"outcome\":\"Not stated\"}"
+      }
+    },
+    {
+      "record_id": "demo-record-2",
+      "fields": {
+        "标题": "Harbor Market revises its import checklist",
+        "markdown": "Fictional example: Harbor Market published an updated import checklist. It adds a translated label and a distributor contact. The effective date is not stated.",
+        "发布时间": 1792558876865,
+        "地址": {
+          "text": "Harbor Market revises its import checklist",
+          "link": "https://example.com/demo/import-checklist",
+          "type": "url"
+        },
+        "账号": "Synthetic Research Desk",
+        "article_id": "wx_20y23nl270s",
+        "摘要": "The revised checklist asks for a translated label and a distributor contact. The effective date is missing and requires follow-up.",
+        "summary_status": "summarized",
+        "文章类型": "Policy update",
+        "类型原因": "The article changes required import documentation.",
+        "政策对象": "[\"Importers\"]",
+        "主题标签": "[\"Documentation\",\"Compliance\"]",
+        "企业类型": "[\"Exporter\",\"Importer\"]",
+        "关键事实": "{\"new_items\":[\"Translated label\",\"Distributor contact\"],\"effective_date\":\"Not stated\"}"
+      }
+    },
+    {
+      "record_id": "demo-record-3",
+      "fields": {
+        "标题": "Atlas Operations begins an AI triage pilot",
+        "markdown": "Fictional example: Atlas Operations is piloting AI classification for incoming research articles. Human review remains required. No measured accuracy, savings or completion date is reported.",
+        "发布时间": 1792558876865,
+        "地址": {
+          "text": "Atlas Operations begins an AI triage pilot",
+          "link": "https://example.com/demo/triage-pilot",
+          "type": "url"
+        },
+        "账号": "Synthetic Research Desk",
+        "article_id": "wx_2dq372lr0ez",
+        "摘要": "Atlas Operations is testing AI classification with human review. The source reports no measured accuracy, savings or completion date.",
+        "summary_status": "summarized",
+        "文章类型": "Operations experiment",
+        "类型原因": "The article describes a pilot rather than a measured business result.",
+        "政策对象": "[]",
+        "主题标签": "[\"AI\",\"Human review\"]",
+        "企业类型": "[\"Research team\"]",
+        "关键事实": "{\"status\":\"Pilot\",\"human_review\":\"Required\",\"measured_savings\":\"Not reported\"}"
+      }
+    }
+  ]
+}

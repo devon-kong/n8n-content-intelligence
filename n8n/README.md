@@ -18,10 +18,10 @@
 
 ## Dependencies
 
-The source deployment was documented against **self-hosted n8n 2.19.5**. A fresh full import and execution of these sanitized exports has not yet been performed. Newer versions require their own acceptance run.
+The source deployment was documented against **self-hosted n8n 2.19.5**. The seven inactive exports have now been accepted by CLI import in an isolated 2.19.5 instance with community nodes disabled. A representative path also ran with explicitly substituted local mock connectors. This does not establish original community-node compatibility or live integration. [Exact engine-demo scope](../docs/demo.md). Newer versions require their own acceptance run.
 
 - Community node packages: `n8n-nodes-feishu-lite`, `n8n-nodes-deepseek`. The source records do not pin their installed versions; select and record compatible versions in your test instance.
-- `better-sqlite3` must be installed and permitted in the **Code-node execution environment**. The historical setup used `NODE_FUNCTION_ALLOW_EXTERNAL=better-sqlite3`; external task runners also need the module available in their own environment. Do not assume setting a variable alone installs the module.
+- `better-sqlite3` must be installed and permitted in the **Code-node execution environment**. The historical setup used `NODE_FUNCTION_ALLOW_EXTERNAL=better-sqlite3`; external task runners also need the module available in their own environment. Do not assume setting a variable alone installs the module. The isolated demo used version 12.4.1 and an explicit native-binding path in its private copies because default addon discovery failed in the secure runner. Validate your own runner packaging; do not disable runner security to copy the demo.
 - A persistent writable SQLite path, currently `/home/node/.n8n/wechat_monitor_paid_calls.sqlite`, shared by the relevant summary/metrics workflows.
 - A reachable, separately operated wechat2rss service. Catch currently uses the example Docker-network hostname `http://wechat2rss:8080`; change `Normalize Accounts` if your topology differs.
 - A Feishu application with access to the configuration and article tables; optional DeepSeek and metrics-provider accounts.
@@ -57,7 +57,7 @@ The fixtures do not require these services. The full workflow set is not adverti
 1. Import **Catch, both Summary workflows and Metrics first**, then the three Entries, from the configured copies. All exports are inactive.
 2. Bind credentials on each applicable node. A placeholder credential reference is not an installed credential.
 3. In every Entry's **Execute Catch / Execute Summary / Execute Metric** node, select the imported child workflow. **UI imports may assign different workflow IDs**; the portable references are not proof of correct binding. Industry/AI entries use News Summary; Benchmark uses Benchmark Summary.
-4. Review schedules and timezone before activation. Imported schedule nodes retain the selected source design; keep every Entry inactive until acceptance is complete.
+4. For CLI/scheduled execution in 2.19.5, publish the child workflow versions after binding and reviewing them; merely importing an inactive child is insufficient. Keep scheduled Entries inactive during acceptance. Review schedules and timezone before activation. Imported schedule nodes retain the selected source design; keep every Entry inactive until acceptance is complete.
 5. Run one Entry manually using a dedicated test target. Inspect Catch's `Verify Count`, write actions and downstream outcomes. Repeat with the same input to inspect skip behavior and paid-call reuse. Test optional metrics separately if you enable it.
 
 Local checks cannot establish that your credentials, node-package versions or target schemas are compatible. Record that import/manual-execution gate in your environment before scheduling live use.
@@ -68,6 +68,8 @@ Local checks cannot establish that your credentials, node-package versions or ta
 - **Child workflow not found:** reselect the imported workflow in each Execute node.
 - **Module not allowed / SQLite unavailable:** inspect the actual runner's module installation, allowlist and filesystem permissions.
 - **Table not found / field error:** verify app access, configured identifiers, field names and types. Chinese field names are part of the contract.
+- **`UNCERTAIN_REVIEW` / expired paid-call lock:** pause related schedules and follow the [review and recovery procedure](../docs/paid-call-recovery.md). Repeated runs do not release uncertain calls.
+- **Configuration not unique:** keep exactly one enabled row per pipeline; a paginated response is rejected rather than selecting a partial result.
 - **Visibility failure:** inspect missing IDs/content/URLs and write responses; do not bypass verification merely to obtain a green execution.
 - **More than 100 enabled accounts:** the selected Catch intentionally fails fast; account-list pagination is not implemented.
 
